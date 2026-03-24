@@ -151,9 +151,9 @@ def main() -> None:
     parser.add_argument(
         "--output", default="data/processed/pilot_v1.jsonl", help="Output path"
     )
-    parser.add_argument("--min-en-chars", type=int, default=4)
-    parser.add_argument("--min-ja-chars", type=int, default=2)
-    parser.add_argument("--max-len-ratio", type=float, default=9.0)
+    parser.add_argument("--min-en-chars", type=int, default=10)
+    parser.add_argument("--min-ja-chars", type=int, default=4)
+    parser.add_argument("--max-len-ratio", type=float, default=5.0)
     parser.add_argument("--min-quality", type=float, default=0.5)
     args = parser.parse_args()
 

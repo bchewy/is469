@@ -8,11 +8,12 @@ model:
   output_adapter_dir: /artifacts/adapters/translation
 
 training:
-  epochs: 2
-  lr: 0.0002
-  lora_rank: 16
+  epochs: 3
+  lr: 0.0001
+  lora_rank: 32
   batch_size: 8
   max_seq_len: 2048
+  early_stopping_patience: 2
 
 data:
   train_path: data/splits/train_v1.jsonl

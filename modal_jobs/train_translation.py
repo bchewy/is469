@@ -119,11 +119,12 @@ def train(config: str) -> dict:
         model_path = base_model_id
         print(f"Using HF model: {model_path}")
 
-    epochs = train_cfg.get("epochs", 2)
-    lr = train_cfg.get("lr", 2e-4)
-    lora_rank = train_cfg.get("lora_rank", 16)
+    epochs = train_cfg.get("epochs", 3)
+    lr = train_cfg.get("lr", 1e-4)
+    lora_rank = train_cfg.get("lora_rank", 32)
     batch_size = train_cfg.get("batch_size", 8)
     max_seq_len = train_cfg.get("max_seq_len", 2048)
+    early_stopping_patience = train_cfg.get("early_stopping_patience", 0)
 
     train_path = data_cfg.get("train_path", "data/splits/train_v1.jsonl")
     dev_path = data_cfg.get("dev_path", "data/splits/dev_v1.jsonl")
@@ -192,6 +193,8 @@ def train(config: str) -> dict:
     output_dir = str(Path(output_adapter_dir) / "checkpoints")
     Path(output_dir).mkdir(parents=True, exist_ok=True)
 
+    use_early_stopping = early_stopping_patience > 0
+
     sft_config = SFTConfig(
         output_dir=output_dir,
         num_train_epochs=epochs,
@@ -206,6 +209,9 @@ def train(config: str) -> dict:
         eval_strategy="epoch",
         save_strategy="epoch",
         save_total_limit=2,
+        load_best_model_at_end=use_early_stopping,
+        metric_for_best_model="eval_loss" if use_early_stopping else None,
+        greater_is_better=False if use_early_stopping else None,
         bf16=True,
         seed=seed,
         report_to="none",
@@ -216,12 +222,18 @@ def train(config: str) -> dict:
         packing=False,
     )
 
+    callbacks = []
+    if use_early_stopping:
+        from transformers import EarlyStoppingCallback
+        callbacks.append(EarlyStoppingCallback(early_stopping_patience=early_stopping_patience))
+
     trainer = SFTTrainer(
         model=model,
         processing_class=tokenizer,
         train_dataset=train_ds,
         eval_dataset=dev_ds,
         args=sft_config,
+        callbacks=callbacks if callbacks else None,
     )
 
     t0 = time.time()

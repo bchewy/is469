@@ -9,6 +9,6 @@ __pycache__/
 .env
 qwen-qwen2.5-7b-instruct/
 results/
-data/raw/
-data/processed/
-data/splits/
+*.safetensors
+*.pdf
+models/adapter-translation/final/tokenizer.json

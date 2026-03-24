@@ -290,6 +290,57 @@ def _collect_jesc_direct(max_rows: int) -> list[TranslationRow]:
     return rows
 
 
+# ── Source: JParaCrawl via HuggingFace ────────────────────────────────────────
+
+
+def collect_jparacrawl(max_rows: int) -> list[TranslationRow]:
+    """Pull EN-JA pairs from JParaCrawl (web-crawled parallel corpus).
+
+    Uses the filtered version with quality flags — only keeps pairs where
+    at least one quality model accepted the alignment.
+    """
+    print("[jparacrawl] Loading Verah/JParaCrawl-Filtered from HuggingFace ...")
+    try:
+        from datasets import load_dataset
+        ds = load_dataset(
+            "Verah/JParaCrawl-Filtered-English-Japanese-Parallel-Corpus",
+            split="train",
+            streaming=True,
+        )
+    except Exception as exc:
+        print(f"[jparacrawl] Failed to load dataset: {exc}")
+        return []
+
+    rows: list[TranslationRow] = []
+    seen = 0
+    for item in ds:
+        seen += 1
+        if len(rows) >= max_rows:
+            break
+        accepted = item.get("model1_accepted", 0) or item.get("model2_accepted", 0)
+        if not accepted:
+            continue
+        en_text = item.get("english", "").strip()
+        ja_text = item.get("japanese", "").strip()
+        if en_text and ja_text and len(en_text) >= 10 and len(ja_text) >= 4:
+            rows.append(
+                TranslationRow(
+                    id=TranslationRow.generate_id("jpc"),
+                    source_en=en_text,
+                    target_ja=ja_text,
+                    domain="general",
+                    source_ref="jparacrawl",
+                    quality_score=0.85,
+                    license="cc-by-sa-4.0",
+                )
+            )
+        if seen > max_rows * 20:
+            break
+
+    print(f"[jparacrawl] Collected {len(rows)} pairs (scanned {seen} rows)")
+    return rows
+
+
 # ── Source: Local file ───────────────────────────────────────────────────────
 
 def collect_local(file_path: str, max_rows: int) -> list[TranslationRow]:
@@ -359,6 +410,7 @@ SOURCE_REGISTRY: dict[str, any] = {
     "hf_tatoeba": collect_hf_tatoeba,
     "opus100": collect_opus100,
     "jesc": collect_jesc,
+    "jparacrawl": collect_jparacrawl,
 }
 
 
@@ -399,7 +451,7 @@ def main() -> None:
     parser.add_argument(
         "--sources",
         default="tatoeba",
-        help="Comma-separated list: tatoeba,hf_tatoeba,opus100,jesc,local",
+        help="Comma-separated: tatoeba,hf_tatoeba,opus100,jesc,jparacrawl,local",
     )
     parser.add_argument("--max-per-source", type=int, default=5000)
     parser.add_argument("--local-file", default=None)
