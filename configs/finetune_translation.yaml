@@ -3,6 +3,7 @@ project:
 
 model:
   base_model_id: Qwen/Qwen2.5-7B-Instruct
+  model_local_path: /models/qwen-qwen2.5-7b-instruct
   train_mode: qlora
   output_adapter_dir: /artifacts/adapters/translation
 

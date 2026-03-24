@@ -6,11 +6,12 @@ project:
 model:
   base_model_id: Qwen/Qwen2.5-7B-Instruct
   model_local_path: /models/qwen-qwen2.5-7b-instruct
+  adapter_dir: /artifacts/adapters/translation/final
 
 variant:
-  id: s0
-  description: Prompt-only baseline
+  id: s1
+  description: QLoRA fine-tuned translation
 
 io:
   input_path: data/splits/test_v1.jsonl
-  output_path: results/metrics/s0_outputs.jsonl
+  output_path: results/metrics/s1_outputs.jsonl

@@ -1,43 +1,26 @@
 # EN -> JA Translation Pipeline (S0/S1/S2/S3)
 
-This repo is the early scaffold for an English-to-Japanese SaaS localization pipeline with four planned variants:
+English-to-Japanese translation pipeline with four planned variants:
 
 - `S0`: prompt-only baseline
-- `S1`: fine-tuned adapters
-- `S2`: fine-tuned + vanilla RAG
-- `S3`: fine-tuned + agentic RAG
+- `S1`: QLoRA fine-tuned adapters
+- `S2`: fine-tuned + vanilla RAG (planned)
+- `S3`: fine-tuned + agentic RAG (planned)
 
-Current status: infra/config skeleton is in place, but core model training/inference/retrieval logic is still scaffold-only.
-
-## What Exists Right Now
-
-- Modal job entrypoints under `modal_jobs/`
-- Variant/config definitions under `configs/`
-- Seed KB files under `kb/`
-- Typed schema dataclasses under `src/utils/schemas.py`
-- Project packaging in `pyproject.toml`
-
-The following jobs currently execute and return scaffold metadata (not real training/retrieval yet):
-
-- `modal_jobs.run_variant`
-- `modal_jobs.train_translation`
-- `modal_jobs.train_error_id`
-- `modal_jobs.build_index`
-
-The following jobs are implemented for model transfer/bootstrap workflows:
-
-- `modal_jobs.download_qwen` (HF -> Modal volume)
-- `modal_jobs.sync_models_to_s3` (Modal volume -> S3)
-- `modal_jobs.download_qwen_to_s3` (HF -> local temp -> S3)
+Current status: S0 and S1 are fully implemented end-to-end (data pipeline, training, inference, eval). S2/S3 are scaffold-only.
 
 ## Repository Layout
 
 ```text
-configs/       Variant and training/retrieval YAML configs
-kb/            Seed glossary, translation memory, style guide, grammar notes
-modal_jobs/    Modal jobs for scaffold runs and model transfer
-src/           Shared Python package (schemas and future modules)
-scripts/       Utility scripts placeholder
+configs/           Variant and training/retrieval YAML configs
+data/raw/          Raw collected parallel data (gitignored)
+data/processed/    Cleaned + filtered data (gitignored)
+data/splits/       train/dev/test splits (gitignored)
+kb/                Seed glossary, translation memory, style guide, grammar notes
+modal_jobs/        Modal jobs for training, inference, and model transfer
+scripts/           Data pipeline scripts (collect, normalize, split)
+src/               Shared Python package (schemas, utils, future modules)
+results/           Metrics and prediction outputs (gitignored)
 ```
 
 ## Requirements
@@ -85,30 +68,9 @@ modal volume create enja-rag-index --env dev
 modal volume create enja-data --env dev
 ```
 
-## Run Current Scaffold Jobs
+## End-to-End S1 Pipeline
 
-Run variant orchestration stub:
-
-```bash
-modal run -m modal_jobs.run_variant --variant s0 --config configs/base.yaml --env dev --timestamps
-```
-
-Run fine-tune stubs:
-
-```bash
-modal run -m modal_jobs.train_translation --config configs/finetune_translation.yaml --env dev --timestamps
-modal run -m modal_jobs.train_error_id --config configs/finetune_error_id.yaml --env dev --timestamps
-```
-
-Run retrieval index stub:
-
-```bash
-modal run -m modal_jobs.build_index --config configs/rag.yaml --env dev --timestamps
-```
-
-## Qwen Model Bootstrap
-
-Download `Qwen/Qwen2.5-7B-Instruct` into Modal volume:
+### Step 1: Download Base Model
 
 ```bash
 modal run -m modal_jobs.download_qwen \
@@ -116,13 +78,118 @@ modal run -m modal_jobs.download_qwen \
   --env dev --timestamps
 ```
 
-Verify files in volume:
+Verify:
 
 ```bash
 modal volume ls enja-base-models /models --env dev
 ```
 
-Sync downloaded model to S3:
+### Step 2: Collect Parallel Data
+
+Collect EN-JA pairs from public sources (Tatoeba, JESC, or local imports):
+
+```bash
+python -m scripts.collect_parallel_data \
+  --sources tatoeba \
+  --max-per-source 5000
+```
+
+This writes raw JSONL files under `data/raw/`.
+
+To import a local CSV/JSONL file alongside public sources:
+
+```bash
+python -m scripts.collect_parallel_data \
+  --sources tatoeba,local \
+  --local-file my_pairs.csv \
+  --max-per-source 5000
+```
+
+Validate raw output:
+
+```bash
+python -m scripts.collect_parallel_data --validate-only data/raw/combined_raw.jsonl
+```
+
+### Step 3: Normalize and Filter
+
+Clean, deduplicate, and quality-filter raw pairs:
+
+```bash
+python -m scripts.normalize_and_filter_pairs \
+  --input data/raw/combined_raw.jsonl \
+  --output data/processed/pilot_v1.jsonl \
+  --min-en-chars 4 \
+  --min-ja-chars 2 \
+  --max-len-ratio 9.0 \
+  --min-quality 0.5
+```
+
+### Step 4: Build Train/Dev/Test Splits
+
+Generate deterministic splits with anti-leakage grouping:
+
+```bash
+python -m scripts.build_splits \
+  --input data/processed/pilot_v1.jsonl \
+  --output-dir data/splits \
+  --train-ratio 0.8 \
+  --dev-ratio 0.1 \
+  --test-ratio 0.1 \
+  --seed 42 \
+  --version v1
+```
+
+Output files:
+- `data/splits/train_v1.jsonl`
+- `data/splits/dev_v1.jsonl`
+- `data/splits/test_v1.jsonl`
+
+### Step 5: Upload Data to Modal Volume
+
+```bash
+modal volume put enja-data data/splits/ /data/splits/ --env dev --force
+```
+
+### Step 6: Run S1 Fine-tuning (QLoRA)
+
+```bash
+modal run -m modal_jobs.train_translation \
+  --config configs/finetune_translation.yaml \
+  --env dev --timestamps
+```
+
+This trains a QLoRA adapter on the training split and saves it to `/artifacts/adapters/translation/final` in the `enja-model-artifacts` volume.
+
+### Step 7: Run S0 Baseline Inference
+
+```bash
+modal run -m modal_jobs.run_variant \
+  --variant s0 \
+  --config configs/base.yaml \
+  --env dev --timestamps
+```
+
+### Step 8: Run S1 Fine-tuned Inference
+
+```bash
+modal run -m modal_jobs.run_variant \
+  --variant s1 \
+  --config configs/s1_inference.yaml \
+  --env dev --timestamps
+```
+
+### Step 9: Compare Results
+
+Both S0 and S1 write:
+- Prediction JSONL: `results/metrics/{variant}_outputs.jsonl`
+- Metrics JSON: `results/metrics/{variant}_metrics.json`
+
+Compare BLEU scores and per-example outputs to assess fine-tuning impact.
+
+## Qwen Model Bootstrap (alternative S3 path)
+
+Sync model from Modal volume to S3:
 
 ```bash
 modal run -m modal_jobs.sync_models_to_s3 \
@@ -140,28 +207,47 @@ modal run -m modal_jobs.download_qwen_to_s3 \
   --env dev --timestamps
 ```
 
-## Config Notes
+## Config Files
 
-- Base config: `configs/base.yaml`
-- Fine-tune configs:
-  - `configs/finetune_translation.yaml`
-  - `configs/finetune_error_id.yaml`
-- Retrieval configs:
-  - `configs/rag.yaml`
-  - `configs/agentic_rag.yaml`
+| Config | Purpose |
+|--------|---------|
+| `configs/base.yaml` | S0 baseline inference |
+| `configs/s1_inference.yaml` | S1 fine-tuned inference |
+| `configs/finetune_translation.yaml` | S1 QLoRA training params |
+| `configs/finetune_error_id.yaml` | Error-ID training params (scaffold) |
+| `configs/rag.yaml` | S2 RAG retrieval (scaffold) |
+| `configs/agentic_rag.yaml` | S3 agentic RAG (scaffold) |
 
-All configs currently define run parameters and intended behavior, but do not yet correspond to fully implemented pipelines.
+## Dataset Schema
+
+Each row in the training/eval JSONL files follows:
+
+```json
+{
+  "id": "tat-a1b2c3d4e5f6",
+  "source_en": "Update your password",
+  "target_ja": "パスワードを更新してください",
+  "domain": "general",
+  "source_ref": "tatoeba",
+  "quality_score": 0.8,
+  "license": "cc-by-4.0",
+  "split": "train",
+  "group_key": ""
+}
+```
+
+Valid domains: `general`, `software_docs`, `customer_support`, `marketing`, `ui_strings`, `legal`.
 
 ## Data and Security Hygiene
 
 - Real credentials belong only in local `.env` (already gitignored).
 - `.env.example` contains placeholders only.
-- Local model directory `qwen-qwen2.5-7b-instruct/` is gitignored to prevent accidental weight pushes.
+- Local model directory `qwen-qwen2.5-7b-instruct/` is gitignored.
 - `data/raw/`, `data/processed/`, `data/splits/`, and `results/` are gitignored.
 
 ## Next Implementation Milestones
 
-1. Implement S0 inference path and JSON output validation.
-2. Implement S1 QLoRA training + adapter artifact persistence.
+1. ~~Implement S0 inference path and JSON output validation.~~ Done
+2. ~~Implement S1 QLoRA training + adapter artifact persistence.~~ Done
 3. Implement S2 retrieval indexing/querying and trace capture.
 4. Implement S3 agentic loop with rewrite/retry controls.
