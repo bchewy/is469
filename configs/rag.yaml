@@ -1,0 +1,13 @@
+variant:
+  id: s2
+  description: Fine-tuned + vanilla RAG
+
+retrieval:
+  top_k: 5
+  bm25_weight: 0.5
+  dense_weight: 0.5
+  kb_paths:
+    - kb/glossary.csv
+    - kb/translation_memory.jsonl
+    - kb/style_guide.md
+    - kb/grammar_notes.md

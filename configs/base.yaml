@@ -1,0 +1,16 @@
+project:
+  name: en-ja-translation
+  domain: saas_ui_localization
+  seed: 42
+
+model:
+  base_model_id: Qwen/Qwen2.5-7B-Instruct
+  model_local_path: /models/qwen2.5-7b-instruct
+
+variant:
+  id: s0
+  description: Prompt-only baseline
+
+io:
+  input_path: data/processed/pilot_v1.jsonl
+  output_path: results/metrics/s0_outputs.jsonl

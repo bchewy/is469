@@ -1,0 +1,16 @@
+variant:
+  id: s3
+  description: Fine-tuned + agentic RAG
+
+agent:
+  rewrite_retry_limit: 1
+  revision_limit: 1
+  coverage_min_threshold: 0.6
+
+retrieval:
+  top_k: 5
+  kb_paths:
+    - kb/glossary.csv
+    - kb/translation_memory.jsonl
+    - kb/style_guide.md
+    - kb/grammar_notes.md
