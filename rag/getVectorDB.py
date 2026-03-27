@@ -4,7 +4,7 @@ import boto3
 client = boto3.client('s3vectors', region_name='ap-southeast-1')
 
 BUCKET_NAME = 'is469-genai-grp-project'
-INDEX_NAME = 'rag-vector'
+INDEX_NAME = 'rag-vector-2'
 
 print("--- Checking Index ---")
 
@@ -20,7 +20,7 @@ list_response = client.list_vectors(
 vectors_found = list_response.get('vectors', [])
 print(f"Successfully retrieved a batch of {len(vectors_found)} vectors.")
 
-for vec in vectors_found[:3]: # Print the first 3 keys to verify
+for vec in vectors_found[:100]: # Print the first 3 keys to verify
     print(f"Found Vector ID: {vec.get('key')}")
 
 

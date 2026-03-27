@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Build one FAISS index from multiple embedded JSONL files."""
+"""Build one FAISS index per embedded JSONL file."""
 
 import json
 import importlib
@@ -100,46 +100,76 @@ def l2_normalize_inplace(vectors: np.ndarray) -> None:
 	vectors /= norms
 
 
+def get_output_paths(input_file: Path, output_dir: Path) -> tuple[Path, Path]:
+	"""Return per-source index/metadata paths for a given embedded JSONL file."""
+	base_name = input_file.name.removesuffix(".jsonl")
+	index_path = output_dir / f"{base_name}.index"
+	metadata_path = output_dir / f"{base_name}_metadata.jsonl"
+	return index_path, metadata_path
+
+
 def main() -> None:
 	input_files = resolve_input_files()
 	if not input_files:
 		raise SystemExit("No embedded files found. Set FAISS_INPUT_FILES or place files in kb/.")
 
-	all_vectors: list[list[float]] = []
-	all_metadata: list[dict] = []
+	output_dir = Path(os.getenv("FAISS_OUTPUT_DIR", str(KB_DIR)))
+	output_dir.mkdir(parents=True, exist_ok=True)
+
+	manifest_rows: list[dict] = []
+	total_vectors = 0
 
 	for file_path in input_files:
 		vectors, metadata = load_embeddings_from_file(file_path)
-		all_vectors.extend(vectors)
-		all_metadata.extend(metadata)
+		if not vectors:
+			print(f"Warning: no embeddings found in {file_path.name}, skipping index creation.")
+			continue
 
-	if not all_vectors:
+		embeddings_array = np.array(vectors, dtype="float32")
+		if embeddings_array.ndim != 2:
+			raise SystemExit(
+				f"Embeddings in {file_path.name} must be 2D, got shape={embeddings_array.shape}"
+			)
+
+		dimension = embeddings_array.shape[1]
+		print(f"Creating FAISS index for {file_path.name} with dimension: {dimension}")
+
+		# Normalize so IndexFlatIP works as cosine similarity.
+		l2_normalize_inplace(embeddings_array)
+		index = faiss_lib.IndexFlatIP(dimension)
+		index.add(embeddings_array)
+
+		index_path, metadata_path = get_output_paths(file_path, output_dir)
+		faiss_lib.write_index(index, str(index_path))
+		print(f"Saved FAISS index to {index_path}")
+
+		with open(metadata_path, "w", encoding="utf-8") as f:
+			for row in metadata:
+				f.write(json.dumps(row, ensure_ascii=False) + "\n")
+		print(f"Saved metadata ({len(metadata):,} rows) to {metadata_path}")
+
+		manifest_rows.append(
+			{
+				"source_file": file_path.name,
+				"index_path": str(index_path),
+				"metadata_path": str(metadata_path),
+				"count": index.ntotal,
+				"dimension": dimension,
+			}
+		)
+		total_vectors += index.ntotal
+
+	if not manifest_rows:
 		raise SystemExit("No embeddings were loaded from the selected files.")
 
-	embeddings_array = np.array(all_vectors, dtype="float32")
-	if embeddings_array.ndim != 2:
-		raise SystemExit(f"Embeddings must be 2D, got shape={embeddings_array.shape}")
+	manifest_path = output_dir / "knowledge_base_indexes.json"
+	with open(manifest_path, "w", encoding="utf-8") as f:
+		json.dump(manifest_rows, f, ensure_ascii=False, indent=2)
 
-	dimension = embeddings_array.shape[1]
-	print(f"Creating FAISS index with dimension: {dimension}")
-
-	# Normalize so IndexFlatIP works as cosine similarity.
-	l2_normalize_inplace(embeddings_array)
-	index = faiss_lib.IndexFlatIP(dimension)
-	index.add(embeddings_array)
-
-	print(f"Successfully added {index.ntotal:,} vectors to the database.")
-
-	index_path = Path(os.getenv("FAISS_INDEX_PATH", "./kb/knowledge_base.index"))
-	metadata_path = Path(os.getenv("FAISS_METADATA_PATH", "./kb/knowledge_base_metadata.jsonl"))
-
-	faiss_lib.write_index(index, str(index_path))
-	print(f"Saved FAISS index to {index_path}")
-
-	with open(metadata_path, "w", encoding="utf-8") as f:
-		for row in all_metadata:
-			f.write(json.dumps(row, ensure_ascii=False) + "\n")
-	print(f"Saved metadata ({len(all_metadata):,} rows) to {metadata_path}")
+	print(
+		f"Built {len(manifest_rows)} indexes with {total_vectors:,} vectors in total. "
+		f"Manifest saved to {manifest_path}"
+	)
 
 
 if __name__ == "__main__":
