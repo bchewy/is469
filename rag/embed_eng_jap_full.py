@@ -16,6 +16,7 @@ DEFAULT_INPUT_FILES = [
     "eng_jap_chunks.jsonl",
     "style_guide_chunks.jsonl",
     "grammar_chunks.jsonl",
+    "gemini_annotated_chunks.jsonl"
 ]
 
 def resolve_input_files() -> list[Path]:
