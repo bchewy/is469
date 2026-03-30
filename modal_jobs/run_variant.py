@@ -60,7 +60,8 @@ SYSTEM_PROMPT = (
 
 def _load_jsonl(path: str) -> list[dict]:
     rows = []
-    with open(path, "r", encoding="utf-8") as f:
+    # Accept UTF-8 JSONL written by Windows tools that may prepend a BOM.
+    with open(path, "r", encoding="utf-8-sig") as f:
         for line in f:
             line = line.strip()
             if line:
@@ -72,6 +73,33 @@ def _resolve_path(p: str) -> str:
     """Try DATA_DIR-prefixed path first, then raw."""
     vol = DATA_DIR / p
     return str(vol) if vol.exists() else p
+
+
+def _compute_translation_metrics(predictions: list[dict]) -> dict:
+    if not predictions or not any(p.get("reference_ja") for p in predictions):
+        return {}
+
+    from sacrebleu.metrics import BLEU, CHRF
+
+    refs = [[p["reference_ja"] for p in predictions]]
+    hyps = [p["prediction_ja"] for p in predictions]
+
+    bleu_tokenizer = "ja-mecab"
+    try:
+        bleu = BLEU(tokenize=bleu_tokenizer)
+        bleu_result = bleu.corpus_score(hyps, refs)
+    except Exception:
+        bleu_tokenizer = "char"
+        bleu = BLEU(tokenize=bleu_tokenizer)
+        bleu_result = bleu.corpus_score(hyps, refs)
+
+    chrfpp = CHRF(word_order=2).corpus_score(hyps, refs)
+
+    return {
+        "bleu": round(bleu_result.score, 2),
+        "bleu_tokenizer": bleu_tokenizer,
+        "chrfpp": round(chrfpp.score, 2),
+    }
 
 
 @app.function(
@@ -94,6 +122,7 @@ def run(variant: str, config: str) -> dict:
     cfg = _load_yaml(config)
     model_cfg = cfg.get("model", {})
     io_cfg = cfg.get("io", {})
+    gen_cfg = cfg.get("generation", {})
 
     base_model_id = model_cfg.get("base_model_id", "Qwen/Qwen2.5-7B-Instruct")
     local_model_path = model_cfg.get("model_local_path")
@@ -112,6 +141,12 @@ def run(variant: str, config: str) -> dict:
     print(f"Model: {model_path}")
     print(f"Input: {input_path}")
     print(f"Output: {output_path}")
+    print(
+        "Generation: "
+        f"do_sample={bool(gen_cfg.get('do_sample', False))} "
+        f"num_beams={int(gen_cfg.get('num_beams', 1))} "
+        f"max_new_tokens={int(gen_cfg.get('max_new_tokens', 512))}"
+    )
 
     rows = _load_jsonl(input_path)
     print(f"Loaded {len(rows)} eval rows")
@@ -151,6 +186,11 @@ def run(variant: str, config: str) -> dict:
 
     predictions: list[dict] = []
     total_latency = 0.0
+    do_sample = bool(gen_cfg.get("do_sample", False))
+    num_beams = int(gen_cfg.get("num_beams", 1))
+    max_new_tokens = int(gen_cfg.get("max_new_tokens", 512))
+    temperature = float(gen_cfg.get("temperature", 0.1))
+    top_p = float(gen_cfg.get("top_p", 0.95))
 
     for row in rows:
         source_en = row.get("source_en", "")
@@ -165,15 +205,18 @@ def run(variant: str, config: str) -> dict:
         inputs = tokenizer(input_text, return_tensors="pt").to(model.device)
 
         t0 = time.time()
+        generation_kwargs = {
+            **inputs,
+            "max_new_tokens": max_new_tokens,
+            "do_sample": do_sample,
+            "num_beams": max(1, num_beams),
+            "pad_token_id": tokenizer.pad_token_id,
+        }
+        if do_sample:
+            generation_kwargs["temperature"] = temperature
+            generation_kwargs["top_p"] = top_p
         with torch.no_grad():
-            output_ids = model.generate(
-                **inputs,
-                max_new_tokens=512,
-                temperature=0.1,
-                top_p=0.95,
-                do_sample=True,
-                pad_token_id=tokenizer.pad_token_id,
-            )
+            output_ids = model.generate(**generation_kwargs)
         latency_ms = round((time.time() - t0) * 1000, 1)
         total_latency += latency_ms
 
@@ -205,18 +248,11 @@ def run(variant: str, config: str) -> dict:
     }
 
     if has_refs:
-        try:
-            from sacrebleu.metrics import BLEU
-            bleu = BLEU(tokenize="ja-mecab")
-        except Exception:
-            from sacrebleu.metrics import BLEU
-            bleu = BLEU()
-
-        refs = [[p["reference_ja"] for p in predictions]]
-        hyps = [p["prediction_ja"] for p in predictions]
-        bleu_result = bleu.corpus_score(hyps, refs)
-        metrics["bleu"] = round(bleu_result.score, 2)
-        print(f"BLEU: {metrics['bleu']}")
+        metrics.update(_compute_translation_metrics(predictions))
+        print(
+            f"BLEU ({metrics['bleu_tokenizer']}): {metrics['bleu']}, "
+            f"chrF++: {metrics['chrfpp']}"
+        )
 
     metrics_path = Path(f"results/metrics/{variant}_metrics.json")
     metrics_path.parent.mkdir(parents=True, exist_ok=True)

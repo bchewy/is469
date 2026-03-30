@@ -1,0 +1,281 @@
+Metadata-Version: 2.4
+Name: genai-llms
+Version: 0.1.0
+Summary: EN->JA translation with baseline, fine-tuning, RAG, and agentic RAG.
+Requires-Python: >=3.11
+Description-Content-Type: text/markdown
+Requires-Dist: modal>=1.1.0
+Requires-Dist: huggingface-hub>=0.32.0
+Requires-Dist: boto3>=1.37.0
+Requires-Dist: pyyaml>=6.0.2
+Requires-Dist: torch>=2.5.1
+Requires-Dist: transformers>=4.46.0
+Requires-Dist: peft>=0.14.0
+Requires-Dist: datasets>=3.2.0
+Requires-Dist: accelerate>=1.2.0
+Requires-Dist: trl>=0.13.0
+Requires-Dist: bitsandbytes>=0.45.0
+Requires-Dist: sentencepiece>=0.2.0
+Requires-Dist: protobuf>=5.29.0
+Requires-Dist: sacrebleu>=2.5.0
+
+# EN -> JA Translation Pipeline (S0/S1/S2/S3)
+
+English-to-Japanese translation pipeline with four planned variants:
+
+- `S0`: prompt-only baseline
+- `S1`: QLoRA fine-tuned adapters
+- `S2`: fine-tuned + vanilla RAG (planned)
+- `S3`: fine-tuned + agentic RAG (planned)
+
+Current status: S0 and S1 are fully implemented end-to-end (data pipeline, training, inference, eval). S2/S3 are scaffold-only.
+
+## Repository Layout
+
+```text
+configs/           Variant and training/retrieval YAML configs
+data/raw/          Raw collected parallel data (gitignored)
+data/processed/    Cleaned + filtered data (gitignored)
+data/splits/       train/dev/test splits (gitignored)
+kb/                Seed glossary, translation memory, style guide, grammar notes
+modal_jobs/        Modal jobs for training, inference, and model transfer
+scripts/           Data pipeline scripts (collect, normalize, split)
+src/               Shared Python package (schemas, utils, future modules)
+results/           Metrics and prediction outputs (gitignored)
+```
+
+## Requirements
+
+- Python `>=3.11`
+- Modal CLI authenticated (`modal setup`)
+- Access to:
+  - Hugging Face token (`HF_TOKEN`)
+  - AWS credentials (`AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY`, region, bucket)
+
+Install:
+
+```bash
+python -m pip install -e .
+```
+
+## Modal Setup
+
+Create/select environment:
+
+```bash
+modal environment create dev
+modal environment create prod
+modal config set-environment dev
+```
+
+Create secrets:
+
+```bash
+modal secret create enja-hf HF_TOKEN="$HF_TOKEN" --env dev --force
+# Account A — object S3 (model weights / uploads): sync_models_to_s3, download_qwen_to_s3
+modal secret create enja-s3-models \
+  MODELS_AWS_ACCESS_KEY_ID="$MODELS_AWS_ACCESS_KEY_ID" \
+  MODELS_AWS_SECRET_ACCESS_KEY="$MODELS_AWS_SECRET_ACCESS_KEY" \
+  MODELS_AWS_DEFAULT_REGION="$MODELS_AWS_DEFAULT_REGION" \
+  MODELS_S3_BUCKET="$MODELS_S3_BUCKET" \
+  --env dev --force
+# Account B — S3 Vector Buckets (RAG): run_s3 agentic retrieval, rag/aws_vectorDB.py
+modal secret create enja-s3-vectors \
+  VECTORS_AWS_ACCESS_KEY_ID="$VECTORS_AWS_ACCESS_KEY_ID" \
+  VECTORS_AWS_SECRET_ACCESS_KEY="$VECTORS_AWS_SECRET_ACCESS_KEY" \
+  VECTORS_AWS_DEFAULT_REGION="$VECTORS_AWS_DEFAULT_REGION" \
+  --env dev --force
+```
+
+Create volumes:
+
+```bash
+modal volume create enja-base-models --env dev
+modal volume create enja-model-artifacts --env dev
+modal volume create enja-rag-index --env dev
+modal volume create enja-data --env dev
+```
+
+## End-to-End S1 Pipeline
+
+### Step 1: Download Base Model
+
+```bash
+modal run -m modal_jobs.download_qwen \
+  --repo-id Qwen/Qwen2.5-7B-Instruct \
+  --env dev --timestamps
+```
+
+Verify:
+
+```bash
+modal volume ls enja-base-models /models --env dev
+```
+
+### Step 2: Collect Parallel Data
+
+Collect EN-JA pairs from public sources (Tatoeba, JESC, or local imports):
+
+```bash
+python -m scripts.collect_parallel_data \
+  --sources tatoeba \
+  --max-per-source 5000
+```
+
+This writes raw JSONL files under `data/raw/`.
+
+To import a local CSV/JSONL file alongside public sources:
+
+```bash
+python -m scripts.collect_parallel_data \
+  --sources tatoeba,local \
+  --local-file my_pairs.csv \
+  --max-per-source 5000
+```
+
+Validate raw output:
+
+```bash
+python -m scripts.collect_parallel_data --validate-only data/raw/combined_raw.jsonl
+```
+
+### Step 3: Normalize and Filter
+
+Clean, deduplicate, and quality-filter raw pairs:
+
+```bash
+python -m scripts.normalize_and_filter_pairs \
+  --input data/raw/combined_raw.jsonl \
+  --output data/processed/pilot_v1.jsonl \
+  --min-en-chars 4 \
+  --min-ja-chars 2 \
+  --max-len-ratio 9.0 \
+  --min-quality 0.5
+```
+
+### Step 4: Build Train/Dev/Test Splits
+
+Generate deterministic splits with anti-leakage grouping:
+
+```bash
+python -m scripts.build_splits \
+  --input data/processed/pilot_v1.jsonl \
+  --output-dir data/splits \
+  --train-ratio 0.8 \
+  --dev-ratio 0.1 \
+  --test-ratio 0.1 \
+  --seed 42 \
+  --version v1
+```
+
+Output files:
+- `data/splits/train_v1.jsonl`
+- `data/splits/dev_v1.jsonl`
+- `data/splits/test_v1.jsonl`
+
+### Step 5: Upload Data to Modal Volume
+
+```bash
+modal volume put enja-data data/splits/ /data/splits/ --env dev --force
+```
+
+### Step 6: Run S1 Fine-tuning (QLoRA)
+
+```bash
+modal run -m modal_jobs.train_translation \
+  --config configs/finetune_translation.yaml \
+  --env dev --timestamps
+```
+
+This trains a QLoRA adapter on the training split and saves it to `/artifacts/adapters/translation/final` in the `enja-model-artifacts` volume.
+
+### Step 7: Run S0 Baseline Inference
+
+```bash
+modal run -m modal_jobs.run_variant \
+  --variant s0 \
+  --config configs/base.yaml \
+  --env dev --timestamps
+```
+
+### Step 8: Run S1 Fine-tuned Inference
+
+```bash
+modal run -m modal_jobs.run_variant \
+  --variant s1 \
+  --config configs/s1_inference.yaml \
+  --env dev --timestamps
+```
+
+### Step 9: Compare Results
+
+Both S0 and S1 write:
+- Prediction JSONL: `results/metrics/{variant}_outputs.jsonl`
+- Metrics JSON: `results/metrics/{variant}_metrics.json`
+
+Compare BLEU scores and per-example outputs to assess fine-tuning impact.
+
+## Qwen Model Bootstrap (alternative S3 path)
+
+Sync model from Modal volume to S3:
+
+```bash
+modal run -m modal_jobs.sync_models_to_s3 \
+  --model-path /models/qwen2.5-7b-instruct \
+  --s3-prefix models/qwen2.5-7b-instruct \
+  --env dev --timestamps
+```
+
+One-shot download + upload:
+
+```bash
+modal run -m modal_jobs.download_qwen_to_s3 \
+  --repo-id Qwen/Qwen2.5-7B-Instruct \
+  --s3-prefix models/qwen2.5-7b-instruct \
+  --env dev --timestamps
+```
+
+## Config Files
+
+| Config | Purpose |
+|--------|---------|
+| `configs/base.yaml` | S0 baseline inference |
+| `configs/s1_inference.yaml` | S1 fine-tuned inference |
+| `configs/finetune_translation.yaml` | S1 QLoRA training params |
+| `configs/finetune_error_id.yaml` | Error-ID training params (scaffold) |
+| `configs/rag.yaml` | S2 RAG retrieval (scaffold) |
+| `configs/agentic_rag.yaml` | S3 agentic RAG (scaffold) |
+
+## Dataset Schema
+
+Each row in the training/eval JSONL files follows:
+
+```json
+{
+  "id": "tat-a1b2c3d4e5f6",
+  "source_en": "Update your password",
+  "target_ja": "パスワードを更新してください",
+  "domain": "general",
+  "source_ref": "tatoeba",
+  "quality_score": 0.8,
+  "license": "cc-by-4.0",
+  "split": "train",
+  "group_key": ""
+}
+```
+
+Valid domains: `general`, `software_docs`, `customer_support`, `marketing`, `ui_strings`, `legal`.
+
+## Data and Security Hygiene
+
+- Real credentials belong only in local `.env` (already gitignored).
+- `.env.example` contains placeholders only.
+- Local model directory `qwen-qwen2.5-7b-instruct/` is gitignored.
+- `data/raw/`, `data/processed/`, `data/splits/`, and `results/` are gitignored.
+
+## Next Implementation Milestones
+
+1. ~~Implement S0 inference path and JSON output validation.~~ Done
+2. ~~Implement S1 QLoRA training + adapter artifact persistence.~~ Done
+3. Implement S2 retrieval indexing/querying and trace capture.
+4. Implement S3 agentic loop with rewrite/retry controls.

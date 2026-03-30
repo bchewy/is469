@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import sys
 from pathlib import Path
 import re
 
@@ -7,11 +8,16 @@ import modal
 
 APP_NAME = "enja-download-qwen-to-s3"
 TMP_ROOT = Path("/tmp/model-download")
+ROOT = Path(__file__).resolve().parents[1]
 
 app = modal.App(APP_NAME)
-image = modal.Image.debian_slim(python_version="3.11").uv_pip_install(
-    "huggingface-hub==0.32.5",
-    "boto3==1.37.38",
+image = (
+    modal.Image.debian_slim(python_version="3.11")
+    .uv_pip_install(
+        "huggingface-hub==0.32.5",
+        "boto3==1.37.38",
+    )
+    .add_local_dir(ROOT / "src", remote_path="/root/src")
 )
 
 
@@ -24,15 +30,7 @@ def _repo_to_dirname(repo_id: str) -> str:
     image=image,
     secrets=[
         modal.Secret.from_name("enja-hf", required_keys=["HF_TOKEN"]),
-        modal.Secret.from_name(
-            "enja-s3",
-            required_keys=[
-                "AWS_ACCESS_KEY_ID",
-                "AWS_SECRET_ACCESS_KEY",
-                "AWS_DEFAULT_REGION",
-                "S3_BUCKET",
-            ],
-        ),
+        modal.Secret.from_name("enja-s3-models"),
     ],
     timeout=60 * 60 * 3,
     ephemeral_disk=60 * 1024,
@@ -43,8 +41,10 @@ def download_and_upload(
     s3_prefix: str = "models/qwen2.5-7b-instruct",
 ) -> int:
     import os
-    import boto3
     from huggingface_hub import snapshot_download
+
+    sys.path.insert(0, "/root")
+    from src.utils.aws_profiles import boto3_session_for_models, models_s3_bucket
 
     work_dir = TMP_ROOT / _repo_to_dirname(repo_id)
     work_dir.mkdir(parents=True, exist_ok=True)
@@ -56,13 +56,8 @@ def download_and_upload(
         token=os.environ["HF_TOKEN"],
     )
 
-    bucket = os.environ["S3_BUCKET"]
-    client = boto3.client(
-        "s3",
-        region_name=os.environ["AWS_DEFAULT_REGION"],
-        aws_access_key_id=os.environ["AWS_ACCESS_KEY_ID"],
-        aws_secret_access_key=os.environ["AWS_SECRET_ACCESS_KEY"],
-    )
+    bucket = models_s3_bucket()
+    client = boto3_session_for_models().client("s3")
 
     uploaded = 0
     for file_path in work_dir.rglob("*"):
