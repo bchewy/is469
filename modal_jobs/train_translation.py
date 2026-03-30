@@ -71,7 +71,8 @@ def _format_chat(source_en: str, target_ja: str | None = None) -> list[dict]:
 
 def _load_jsonl_dataset(path: str) -> list[dict]:
     rows = []
-    with open(path, "r", encoding="utf-8") as f:
+    # Accept UTF-8 JSONL written by Windows tools that may prepend a BOM.
+    with open(path, "r", encoding="utf-8-sig") as f:
         for line in f:
             line = line.strip()
             if line:

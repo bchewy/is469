@@ -1,0 +1,49 @@
+project:
+  name: en-ja-translation
+  domain: general_mixed
+  seed: 42
+
+model:
+  base_model_id: Qwen/Qwen2.5-7B-Instruct
+  # Assumes the Qwen model is present in the Modal /models volume.
+  model_local_path: /models/qwen-qwen2.5-7b-instruct
+  # Assumes the S1 adapter has been written into the Modal /artifacts volume.
+  adapter_dir: /artifacts/adapters/translation/final
+
+variant:
+  id: s3
+  description: Fine-tuned + agentic RAG with S3 Vector Bucket retrieval
+
+io:
+  input_path: data/splits/test_v1.jsonl
+  output_path: results/metrics/s3_outputs.jsonl
+
+agent:
+  rewrite_retry_limit: 1
+  revision_limit: 1
+  coverage_min_threshold: 0.6
+
+generation:
+  max_new_tokens: 512
+  # Use deterministic decoding by default for more stable evaluation.
+  do_sample: false
+  num_beams: 1
+  # Only used when do_sample is true.
+  temperature: 0.1
+  top_p: 0.95
+
+retrieval:
+  # Set enabled: false to run the agent loop without S3 Vectors (empty context).
+  enabled: true
+  backend: s3_vectors
+  # Same names as rag/aws_vectorDB.py / rag/getVectorDB.py
+  vector_bucket_name: is469-genai-grp-project
+  index_name: rag-vector-2
+  region: ap-southeast-1
+  # JSONL files used to resolve chunk text (metadata source_file + source_line from ingest).
+  # Default bundles repo kb/ into the Modal image at /root/kb. Use /data/kb if you volume-sync JSONL only.
+  kb_dir: /root/kb
+  embed_model: intfloat/multilingual-e5-small
+  top_k: 5
+  max_context_chars: 12000
+

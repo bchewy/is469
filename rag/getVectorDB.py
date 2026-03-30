@@ -1,7 +1,15 @@
-import boto3
+import os
+import sys
+from pathlib import Path
 
-# Initialize the client
-client = boto3.client('s3vectors', region_name='ap-southeast-1')
+_ROOT = Path(__file__).resolve().parents[1]
+if str(_ROOT) not in sys.path:
+    sys.path.insert(0, str(_ROOT))
+
+from src.utils.aws_profiles import s3vectors_client
+
+_region = os.environ.get("VECTORS_AWS_DEFAULT_REGION", "ap-southeast-1")
+client = s3vectors_client(region_name=_region)
 
 BUCKET_NAME = 'is469-genai-grp-project'
 INDEX_NAME = 'rag-vector-2'
