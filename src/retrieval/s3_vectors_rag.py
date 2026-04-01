@@ -34,8 +34,11 @@ def _read_jsonl_line(path: Path, line_number: int) -> dict[str, Any] | None:
 
 def _guess_kb_paths(kb_dir: Path, source_file: str) -> list[Path]:
     """Map S3 metadata source_file (see rag/aws_vectorDB.py) to local JSONL paths."""
-    stem = source_file.strip()
+    source = source_file.strip()
+    stem = source[:-6] if source.lower().endswith(".jsonl") else source
+
     candidates = [
+        kb_dir / source,
         kb_dir / f"{stem}.jsonl",
         kb_dir / f"{stem}_vectors.jsonl",
     ]

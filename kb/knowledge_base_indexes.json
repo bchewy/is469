@@ -1,0 +1,16 @@
+[
+  {
+    "source_file": "glossary_chunks_embedded_full.jsonl",
+    "index_path": "kb/glossary_chunks_embedded_full.index",
+    "metadata_path": "kb/glossary_chunks_embedded_full_metadata.jsonl",
+    "count": 14,
+    "dimension": 384
+  },
+  {
+    "source_file": "translation_memory_chunks_embedded_full.jsonl",
+    "index_path": "kb/translation_memory_chunks_embedded_full.index",
+    "metadata_path": "kb/translation_memory_chunks_embedded_full_metadata.jsonl",
+    "count": 1,
+    "dimension": 384
+  }
+]

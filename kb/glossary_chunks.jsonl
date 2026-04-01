@@ -1,0 +1,156 @@
+{"chunk_id": "glossary-1", "chunk_text": "EN_TERM: account settings\nAPPROVED_JA: アカウント設定"}
+{"chunk_id": "glossary-2", "chunk_text": "EN_TERM: bank\nAPPROVED_JA: 銀行"}
+{"chunk_id": "glossary-3", "chunk_text": "EN_TERM: station\nAPPROVED_JA: 駅"}
+{"chunk_id": "glossary-4", "chunk_text": "EN_TERM: gas station\nAPPROVED_JA: ガソリンスタンド"}
+{"chunk_id": "glossary-5", "chunk_text": "EN_TERM: government\nAPPROVED_JA: 政府"}
+{"chunk_id": "glossary-6", "chunk_text": "EN_TERM: working adult\nAPPROVED_JA: 社会人"}
+{"chunk_id": "glossary-7", "chunk_text": "EN_TERM: blood\nAPPROVED_JA: 血"}
+{"chunk_id": "glossary-8", "chunk_text": "EN_TERM: email\nAPPROVED_JA: メール\nFORBIDDEN: e-mail|Eメール"}
+{"chunk_id": "glossary-9", "chunk_text": "EN_TERM: book\nAPPROVED_JA: 本"}
+{"chunk_id": "glossary-10", "chunk_text": "EN_TERM: donkey\nAPPROVED_JA: ロバ\nFORBIDDEN: 馬"}
+{"chunk_id": "glossary-11", "chunk_text": "EN_TERM: family\nAPPROVED_JA: 家族"}
+{"chunk_id": "glossary-12", "chunk_text": "EN_TERM: permission\nAPPROVED_JA: 許可"}
+{"chunk_id": "glossary-13", "chunk_text": "EN_TERM: rain\nAPPROVED_JA: 雨"}
+{"chunk_id": "glossary-14", "chunk_text": "EN_TERM: left\nAPPROVED_JA: 左"}
+{"chunk_id": "glossary-15", "chunk_text": "EN_TERM: password\nAPPROVED_JA: パスワード\nFORBIDDEN: 暗証番号"}
+{"chunk_id": "glossary-16", "chunk_text": "EN_TERM: settings\nAPPROVED_JA: 設定\nFORBIDDEN: セッティング|セットアップ"}
+{"chunk_id": "glossary-17", "chunk_text": "EN_TERM: account\nAPPROVED_JA: アカウント\nFORBIDDEN: 口座"}
+{"chunk_id": "glossary-18", "chunk_text": "EN_TERM: button\nAPPROVED_JA: ボタン"}
+{"chunk_id": "glossary-19", "chunk_text": "EN_TERM: error\nAPPROVED_JA: エラー\nFORBIDDEN: エラーメッセージ"}
+{"chunk_id": "glossary-20", "chunk_text": "EN_TERM: login\nAPPROVED_JA: ログイン\nFORBIDDEN: サインイン|ログオン"}
+{"chunk_id": "glossary-21", "chunk_text": "EN_TERM: logout\nAPPROVED_JA: ログアウト\nFORBIDDEN: サインアウト|ログオフ"}
+{"chunk_id": "glossary-22", "chunk_text": "EN_TERM: update\nAPPROVED_JA: 更新\nFORBIDDEN: アップデート|アップグレード"}
+{"chunk_id": "glossary-23", "chunk_text": "EN_TERM: save\nAPPROVED_JA: 保存\nFORBIDDEN: セーブ"}
+{"chunk_id": "glossary-24", "chunk_text": "EN_TERM: cancel\nAPPROVED_JA: キャンセル\nFORBIDDEN: 中止|中断"}
+{"chunk_id": "glossary-25", "chunk_text": "EN_TERM: confirm\nAPPROVED_JA: 確認\nFORBIDDEN: コンファーム"}
+{"chunk_id": "glossary-26", "chunk_text": "EN_TERM: delete\nAPPROVED_JA: 削除\nFORBIDDEN: デリート|消去"}
+{"chunk_id": "glossary-27", "chunk_text": "EN_TERM: search\nAPPROVED_JA: 検索\nFORBIDDEN: サーチ|探す"}
+{"chunk_id": "glossary-28", "chunk_text": "EN_TERM: download\nAPPROVED_JA: ダウンロード\nFORBIDDEN: 落とす"}
+{"chunk_id": "glossary-29", "chunk_text": "EN_TERM: upload\nAPPROVED_JA: アップロード"}
+{"chunk_id": "glossary-30", "chunk_text": "EN_TERM: submit\nAPPROVED_JA: 送信\nFORBIDDEN: サブミット|提出"}
+{"chunk_id": "glossary-31", "chunk_text": "EN_TERM: register\nAPPROVED_JA: 登録\nFORBIDDEN: レジスター|サインアップ"}
+{"chunk_id": "glossary-32", "chunk_text": "EN_TERM: notification\nAPPROVED_JA: 通知\nFORBIDDEN: ノーティフィケーション"}
+{"chunk_id": "glossary-33", "chunk_text": "EN_TERM: profile\nAPPROVED_JA: プロフィール\nFORBIDDEN: プロファイル"}
+{"chunk_id": "glossary-34", "chunk_text": "EN_TERM: dashboard\nAPPROVED_JA: ダッシュボード"}
+{"chunk_id": "glossary-35", "chunk_text": "EN_TERM: menu\nAPPROVED_JA: メニュー"}
+{"chunk_id": "glossary-36", "chunk_text": "EN_TERM: link\nAPPROVED_JA: リンク"}
+{"chunk_id": "glossary-37", "chunk_text": "EN_TERM: file\nAPPROVED_JA: ファイル"}
+{"chunk_id": "glossary-38", "chunk_text": "EN_TERM: folder\nAPPROVED_JA: フォルダ\nFORBIDDEN: フォルダー"}
+{"chunk_id": "glossary-39", "chunk_text": "EN_TERM: screen\nAPPROVED_JA: 画面\nFORBIDDEN: スクリーン"}
+{"chunk_id": "glossary-40", "chunk_text": "EN_TERM: page\nAPPROVED_JA: ページ"}
+{"chunk_id": "glossary-41", "chunk_text": "EN_TERM: user\nAPPROVED_JA: ユーザー\nFORBIDDEN: ユーザ|利用者"}
+{"chunk_id": "glossary-42", "chunk_text": "EN_TERM: administrator\nAPPROVED_JA: 管理者\nFORBIDDEN: アドミン|アドミニストレーター"}
+{"chunk_id": "glossary-43", "chunk_text": "EN_TERM: support\nAPPROVED_JA: サポート\nFORBIDDEN: 支援"}
+{"chunk_id": "glossary-44", "chunk_text": "EN_TERM: issue\nAPPROVED_JA: 問題\nFORBIDDEN: イシュー|課題"}
+{"chunk_id": "glossary-45", "chunk_text": "EN_TERM: message\nAPPROVED_JA: メッセージ"}
+{"chunk_id": "glossary-46", "chunk_text": "EN_TERM: chat\nAPPROVED_JA: チャット"}
+{"chunk_id": "glossary-47", "chunk_text": "EN_TERM: address\nAPPROVED_JA: 住所\nFORBIDDEN: アドレス"}
+{"chunk_id": "glossary-48", "chunk_text": "EN_TERM: phone number\nAPPROVED_JA: 電話番号"}
+{"chunk_id": "glossary-49", "chunk_text": "EN_TERM: date\nAPPROVED_JA: 日付\nFORBIDDEN: デート"}
+{"chunk_id": "glossary-50", "chunk_text": "EN_TERM: time\nAPPROVED_JA: 時間\nFORBIDDEN: タイム"}
+{"chunk_id": "glossary-51", "chunk_text": "EN_TERM: version\nAPPROVED_JA: バージョン"}
+{"chunk_id": "glossary-52", "chunk_text": "EN_TERM: language\nAPPROVED_JA: 言語\nFORBIDDEN: ランゲージ"}
+{"chunk_id": "glossary-53", "chunk_text": "EN_TERM: country\nAPPROVED_JA: 国\nFORBIDDEN: カントリー"}
+{"chunk_id": "glossary-54", "chunk_text": "EN_TERM: city\nAPPROVED_JA: 都市\nFORBIDDEN: シティ"}
+{"chunk_id": "glossary-55", "chunk_text": "EN_TERM: name\nAPPROVED_JA: 名前\nFORBIDDEN: ネーム"}
+{"chunk_id": "glossary-56", "chunk_text": "EN_TERM: username\nAPPROVED_JA: ユーザー名"}
+{"chunk_id": "glossary-57", "chunk_text": "EN_TERM: first name\nAPPROVED_JA: 名\nFORBIDDEN: ファーストネーム|名前"}
+{"chunk_id": "glossary-58", "chunk_text": "EN_TERM: last name\nAPPROVED_JA: 姓\nFORBIDDEN: ラストネーム|苗字"}
+{"chunk_id": "glossary-59", "chunk_text": "EN_TERM: birthday\nAPPROVED_JA: 誕生日\nFORBIDDEN: バースデー"}
+{"chunk_id": "glossary-60", "chunk_text": "EN_TERM: manager\nAPPROVED_JA: マネージャー\nFORBIDDEN: 支配人|管理職"}
+{"chunk_id": "glossary-61", "chunk_text": "EN_TERM: customer\nAPPROVED_JA: お客様\nFORBIDDEN: 顧客|クライアント|カスタマー"}
+{"chunk_id": "glossary-62", "chunk_text": "EN_TERM: price\nAPPROVED_JA: 価格\nFORBIDDEN: 値段|プライス"}
+{"chunk_id": "glossary-63", "chunk_text": "EN_TERM: free\nAPPROVED_JA: 無料\nFORBIDDEN: フリー"}
+{"chunk_id": "glossary-64", "chunk_text": "EN_TERM: paid\nAPPROVED_JA: 有料"}
+{"chunk_id": "glossary-65", "chunk_text": "EN_TERM: plan\nAPPROVED_JA: プラン\nFORBIDDEN: 計画"}
+{"chunk_id": "glossary-66", "chunk_text": "EN_TERM: subscription\nAPPROVED_JA: サブスクリプション\nFORBIDDEN: 定期購読"}
+{"chunk_id": "glossary-67", "chunk_text": "EN_TERM: trial\nAPPROVED_JA: トライアル\nFORBIDDEN: 試用"}
+{"chunk_id": "glossary-68", "chunk_text": "EN_TERM: feature\nAPPROVED_JA: 機能\nFORBIDDEN: フィーチャー"}
+{"chunk_id": "glossary-69", "chunk_text": "EN_TERM: privacy\nAPPROVED_JA: プライバシー\nFORBIDDEN: 個人情報"}
+{"chunk_id": "glossary-70", "chunk_text": "EN_TERM: terms\nAPPROVED_JA: 利用規約\nFORBIDDEN: 規約|テームズ"}
+{"chunk_id": "glossary-71", "chunk_text": "EN_TERM: agreement\nAPPROVED_JA: 同意\nFORBIDDEN: アグリーメント|承諾"}
+{"chunk_id": "glossary-72", "chunk_text": "EN_TERM: policy\nAPPROVED_JA: ポリシー\nFORBIDDEN: 方針"}
+{"chunk_id": "glossary-73", "chunk_text": "EN_TERM: cookie\nAPPROVED_JA: クッキー"}
+{"chunk_id": "glossary-74", "chunk_text": "EN_TERM: access\nAPPROVED_JA: アクセス"}
+{"chunk_id": "glossary-75", "chunk_text": "EN_TERM: permission denied\nAPPROVED_JA: アクセス拒否"}
+{"chunk_id": "glossary-76", "chunk_text": "EN_TERM: two-factor authentication\nAPPROVED_JA: 二段階認証\nFORBIDDEN: 二要素認証|2FA"}
+{"chunk_id": "glossary-77", "chunk_text": "EN_TERM: verification\nAPPROVED_JA: 確認\nFORBIDDEN: ベリフィケーション"}
+{"chunk_id": "glossary-78", "chunk_text": "EN_TERM: code\nAPPROVED_JA: コード"}
+{"chunk_id": "glossary-79", "chunk_text": "EN_TERM: token\nAPPROVED_JA: トークン"}
+{"chunk_id": "glossary-80", "chunk_text": "EN_TERM: session\nAPPROVED_JA: セッション"}
+{"chunk_id": "glossary-81", "chunk_text": "EN_TERM: timeout\nAPPROVED_JA: タイムアウト"}
+{"chunk_id": "glossary-82", "chunk_text": "EN_TERM: loading\nAPPROVED_JA: 読み込み中\nFORBIDDEN: ローディング"}
+{"chunk_id": "glossary-83", "chunk_text": "EN_TERM: complete\nAPPROVED_JA: 完了\nFORBIDDEN: コンプリート|終了"}
+{"chunk_id": "glossary-84", "chunk_text": "EN_TERM: success\nAPPROVED_JA: 成功\nFORBIDDEN: サクセス"}
+{"chunk_id": "glossary-85", "chunk_text": "EN_TERM: failure\nAPPROVED_JA: 失敗\nFORBIDDEN: フェイラー"}
+{"chunk_id": "glossary-86", "chunk_text": "EN_TERM: warning\nAPPROVED_JA: 警告\nFORBIDDEN: ワーニング"}
+{"chunk_id": "glossary-87", "chunk_text": "EN_TERM: information\nAPPROVED_JA: 情報\nFORBIDDEN: インフォメーション"}
+{"chunk_id": "glossary-88", "chunk_text": "EN_TERM: help\nAPPROVED_JA: ヘルプ\nFORBIDDEN: 助け|サポート"}
+{"chunk_id": "glossary-89", "chunk_text": "EN_TERM: FAQ\nAPPROVED_JA: よくある質問\nFORBIDDEN: FAQ|よくあるご質問"}
+{"chunk_id": "glossary-90", "chunk_text": "EN_TERM: tutorial\nAPPROVED_JA: チュートリアル\nFORBIDDEN: 入門"}
+{"chunk_id": "glossary-91", "chunk_text": "EN_TERM: guide\nAPPROVED_JA: ガイド\nFORBIDDEN: 手引き"}
+{"chunk_id": "glossary-92", "chunk_text": "EN_TERM: feedback\nAPPROVED_JA: フィードバック\nFORBIDDEN: 意見|感想"}
+{"chunk_id": "glossary-93", "chunk_text": "EN_TERM: review\nAPPROVED_JA: レビュー\nFORBIDDEN: 評価|口コミ"}
+{"chunk_id": "glossary-94", "chunk_text": "EN_TERM: rating\nAPPROVED_JA: 評価\nFORBIDDEN: レーティング|星"}
+{"chunk_id": "glossary-95", "chunk_text": "EN_TERM: report\nAPPROVED_JA: レポート\nFORBIDDEN: 報告書"}
+{"chunk_id": "glossary-96", "chunk_text": "EN_TERM: export\nAPPROVED_JA: エクスポート\nFORBIDDEN: 書き出し"}
+{"chunk_id": "glossary-97", "chunk_text": "EN_TERM: import\nAPPROVED_JA: インポート\nFORBIDDEN: 読み込み"}
+{"chunk_id": "glossary-98", "chunk_text": "EN_TERM: backup\nAPPROVED_JA: バックアップ"}
+{"chunk_id": "glossary-99", "chunk_text": "EN_TERM: restore\nAPPROVED_JA: 復元\nFORBIDDEN: リストア"}
+{"chunk_id": "glossary-100", "chunk_text": "EN_TERM: sync\nAPPROVED_JA: 同期\nFORBIDDEN: シンク|シンクロ"}
+{"chunk_id": "glossary-101", "chunk_text": "EN_TERM: connect\nAPPROVED_JA: 接続\nFORBIDDEN: コネクト|つなぐ"}
+{"chunk_id": "glossary-102", "chunk_text": "EN_TERM: disconnect\nAPPROVED_JA: 切断\nFORBIDDEN: ディスコネクト"}
+{"chunk_id": "glossary-103", "chunk_text": "EN_TERM: install\nAPPROVED_JA: インストール\nFORBIDDEN: 導入"}
+{"chunk_id": "glossary-104", "chunk_text": "EN_TERM: uninstall\nAPPROVED_JA: アンインストール\nFORBIDDEN: 削除|アンインストール"}
+{"chunk_id": "glossary-105", "chunk_text": "EN_TERM: upgrade\nAPPROVED_JA: アップグレード\nFORBIDDEN: 更新"}
+{"chunk_id": "glossary-106", "chunk_text": "EN_TERM: payment\nAPPROVED_JA: 支払い\nFORBIDDEN: ペイメント"}
+{"chunk_id": "glossary-107", "chunk_text": "EN_TERM: invoice\nAPPROVED_JA: 請求書\nFORBIDDEN: インボイス"}
+{"chunk_id": "glossary-108", "chunk_text": "EN_TERM: receipt\nAPPROVED_JA: 領収書\nFORBIDDEN: レシート|受領書"}
+{"chunk_id": "glossary-109", "chunk_text": "EN_TERM: discount\nAPPROVED_JA: 割引\nFORBIDDEN: ディスカウント"}
+{"chunk_id": "glossary-110", "chunk_text": "EN_TERM: coupon\nAPPROVED_JA: クーポン"}
+{"chunk_id": "glossary-111", "chunk_text": "EN_TERM: cart\nAPPROVED_JA: カート\nFORBIDDEN: ショッピングカート"}
+{"chunk_id": "glossary-112", "chunk_text": "EN_TERM: checkout\nAPPROVED_JA: チェックアウト\nFORBIDDEN: お会計|精算"}
+{"chunk_id": "glossary-113", "chunk_text": "EN_TERM: order\nAPPROVED_JA: 注文\nFORBIDDEN: オーダー"}
+{"chunk_id": "glossary-114", "chunk_text": "EN_TERM: shipping\nAPPROVED_JA: 配送\nFORBIDDEN: シッピング|発送"}
+{"chunk_id": "glossary-115", "chunk_text": "EN_TERM: delivery\nAPPROVED_JA: 配達\nFORBIDDEN: デリバリー"}
+{"chunk_id": "glossary-116", "chunk_text": "EN_TERM: address book\nAPPROVED_JA: アドレス帳\nFORBIDDEN: 連絡先"}
+{"chunk_id": "glossary-117", "chunk_text": "EN_TERM: contact\nAPPROVED_JA: 連絡先\nFORBIDDEN: コンタクト"}
+{"chunk_id": "glossary-118", "chunk_text": "EN_TERM: calendar\nAPPROVED_JA: カレンダー"}
+{"chunk_id": "glossary-119", "chunk_text": "EN_TERM: event\nAPPROVED_JA: イベント\nFORBIDDEN: 行事|催し"}
+{"chunk_id": "glossary-120", "chunk_text": "EN_TERM: reminder\nAPPROVED_JA: リマインダー\nFORBIDDEN: 通知|リマインド"}
+{"chunk_id": "glossary-121", "chunk_text": "EN_TERM: deadline\nAPPROVED_JA: 締め切り\nFORBIDDEN: デッドライン|期限"}
+{"chunk_id": "glossary-122", "chunk_text": "EN_TERM: appointment\nAPPROVED_JA: 予約\nFORBIDDEN: アポイントメント|アポ"}
+{"chunk_id": "glossary-123", "chunk_text": "EN_TERM: meeting\nAPPROVED_JA: 会議\nFORBIDDEN: ミーティング"}
+{"chunk_id": "glossary-124", "chunk_text": "EN_TERM: invite\nAPPROVED_JA: 招待\nFORBIDDEN: インバイト"}
+{"chunk_id": "glossary-125", "chunk_text": "EN_TERM: share\nAPPROVED_JA: 共有\nFORBIDDEN: シェア"}
+{"chunk_id": "glossary-126", "chunk_text": "EN_TERM: public\nAPPROVED_JA: 公開\nFORBIDDEN: パブリック"}
+{"chunk_id": "glossary-127", "chunk_text": "EN_TERM: private\nAPPROVED_JA: 非公開\nFORBIDDEN: プライベート"}
+{"chunk_id": "glossary-128", "chunk_text": "EN_TERM: draft\nAPPROVED_JA: 下書き\nFORBIDDEN: ドラフト"}
+{"chunk_id": "glossary-129", "chunk_text": "EN_TERM: publish\nAPPROVED_JA: 公開\nFORBIDDEN: パブリッシュ"}
+{"chunk_id": "glossary-130", "chunk_text": "EN_TERM: archive\nAPPROVED_JA: アーカイブ\nFORBIDDEN: 保管"}
+{"chunk_id": "glossary-131", "chunk_text": "EN_TERM: tag\nAPPROVED_JA: タグ"}
+{"chunk_id": "glossary-132", "chunk_text": "EN_TERM: category\nAPPROVED_JA: カテゴリー\nFORBIDDEN: カテゴリ|種別"}
+{"chunk_id": "glossary-133", "chunk_text": "EN_TERM: sort\nAPPROVED_JA: 並び替え\nFORBIDDEN: ソート"}
+{"chunk_id": "glossary-134", "chunk_text": "EN_TERM: filter\nAPPROVED_JA: フィルター\nFORBIDDEN: 絞り込み"}
+{"chunk_id": "glossary-135", "chunk_text": "EN_TERM: view\nAPPROVED_JA: 表示\nFORBIDDEN: ビュー"}
+{"chunk_id": "glossary-136", "chunk_text": "EN_TERM: edit\nAPPROVED_JA: 編集\nFORBIDDEN: エディット|修正"}
+{"chunk_id": "glossary-137", "chunk_text": "EN_TERM: copy\nAPPROVED_JA: コピー\nFORBIDDEN: 複製"}
+{"chunk_id": "glossary-138", "chunk_text": "EN_TERM: paste\nAPPROVED_JA: 貼り付け\nFORBIDDEN: ペースト"}
+{"chunk_id": "glossary-139", "chunk_text": "EN_TERM: undo\nAPPROVED_JA: 元に戻す\nFORBIDDEN: アンドゥ"}
+{"chunk_id": "glossary-140", "chunk_text": "EN_TERM: redo\nAPPROVED_JA: やり直し\nFORBIDDEN: リドゥ"}
+{"chunk_id": "glossary-141", "chunk_text": "EN_TERM: zoom\nAPPROVED_JA: ズーム\nFORBIDDEN: 拡大縮小"}
+{"chunk_id": "glossary-142", "chunk_text": "EN_TERM: print\nAPPROVED_JA: 印刷\nFORBIDDEN: プリント"}
+{"chunk_id": "glossary-143", "chunk_text": "EN_TERM: close\nAPPROVED_JA: 閉じる\nFORBIDDEN: クローズ"}
+{"chunk_id": "glossary-144", "chunk_text": "EN_TERM: open\nAPPROVED_JA: 開く\nFORBIDDEN: オープン"}
+{"chunk_id": "glossary-145", "chunk_text": "EN_TERM: new\nAPPROVED_JA: 新規\nFORBIDDEN: ニュー|新しい"}
+{"chunk_id": "glossary-146", "chunk_text": "EN_TERM: add\nAPPROVED_JA: 追加\nFORBIDDEN: アッド|加える"}
+{"chunk_id": "glossary-147", "chunk_text": "EN_TERM: remove\nAPPROVED_JA: 削除\nFORBIDDEN: リムーブ|取り除く"}
+{"chunk_id": "glossary-148", "chunk_text": "EN_TERM: select\nAPPROVED_JA: 選択\nFORBIDDEN: セレクト|選ぶ"}
+{"chunk_id": "glossary-149", "chunk_text": "EN_TERM: check\nAPPROVED_JA: チェック\nFORBIDDEN: 確認"}
+{"chunk_id": "glossary-150", "chunk_text": "EN_TERM: toggle\nAPPROVED_JA: 切り替え\nFORBIDDEN: トグル"}
+{"chunk_id": "glossary-151", "chunk_text": "EN_TERM: enable\nAPPROVED_JA: 有効にする\nFORBIDDEN: イネーブル"}
+{"chunk_id": "glossary-152", "chunk_text": "EN_TERM: disable\nAPPROVED_JA: 無効にする\nFORBIDDEN: ディセーブル"}
+{"chunk_id": "glossary-153", "chunk_text": "EN_TERM: default\nAPPROVED_JA: デフォルト\nFORBIDDEN: 既定|標準"}
+{"chunk_id": "glossary-154", "chunk_text": "EN_TERM: custom\nAPPROVED_JA: カスタム\nFORBIDDEN: カスタマイズ"}
+{"chunk_id": "glossary-155", "chunk_text": "EN_TERM: advanced\nAPPROVED_JA: 詳細\nFORBIDDEN: アドバンスド|高度"}
+{"chunk_id": "glossary-156", "chunk_text": "EN_TERM: basic\nAPPROVED_JA: 基本\nFORBIDDEN: ベーシック|シンプル"}

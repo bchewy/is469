@@ -138,13 +138,14 @@ def run(config: str) -> dict:
 
     from src.agents.agentic_rag import detect_translation_error, translate_with_agentic_loop
     from src.eval.s3_eval import (
-        build_eval_assets,
-        build_retrieval_eval,
-        build_terminology_eval,
-        compute_comet_metrics,
-        compute_error_id_metrics,
-        compute_retrieval_metrics,
-        compute_terminology_metrics,
+    build_eval_assets,
+    build_retrieval_eval,
+    build_terminology_eval,
+    canonicalize_id,
+    compute_comet_metrics,
+    compute_error_id_metrics,
+    compute_retrieval_metrics,
+    compute_terminology_metrics,
     )
     from src.retrieval.s3_vectors_rag import S3VectorsRAGRetriever
 
@@ -330,7 +331,7 @@ def run(config: str) -> dict:
             prediction_ja=candidate_ja,
             assets=eval_assets,
         )
-        gold_error_label = eval_assets.gold_error_by_id.get(row_id)
+        gold_error_label = eval_assets.gold_error_by_id.get(canonicalize_id(row_id))
 
         predictions.append(
             {
@@ -399,7 +400,7 @@ def run(config: str) -> dict:
     metrics.update(compute_terminology_metrics(predictions))
     metrics.update(compute_error_id_metrics(predictions))
 
-    metrics_path = Path(f"results/metrics/s3_metrics.json")
+    metrics_path = Path("/results/metrics/s3_metrics.json")
     metrics_path.parent.mkdir(parents=True, exist_ok=True)
     with metrics_path.open("w", encoding="utf-8") as f:
         json.dump(metrics, f, indent=2, ensure_ascii=False)

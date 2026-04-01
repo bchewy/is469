@@ -16,7 +16,7 @@ variant:
 
 io:
   input_path: data/splits/test_v1.jsonl
-  output_path: results/metrics/s3_outputs.jsonl
+  output_path: /results/metrics/s3_outputs.jsonl
 
 agent:
   rewrite_retry_limit: 1
