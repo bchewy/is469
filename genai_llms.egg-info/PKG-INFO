@@ -96,6 +96,187 @@ modal volume create enja-rag-index --env dev
 modal volume create enja-data --env dev
 ```
 
+## S3 Agentic RAG Quickstart
+
+This is the shortest practical runbook for the `S3` path in this repo:
+
+For a team handoff version with a focused runbook, architecture diagram, and remaining work list, see [README_S3.md](README_S3.md).
+
+- `run_s3` loads the base model from Modal volume `/models` if present, otherwise falls back to Hugging Face using `HF_TOKEN`.
+- `run_s3` loads the fine-tuned LoRA adapter only if it exists in the `enja-model-artifacts` volume at `/adapters/translation/final`.
+- `run_s3` queries Amazon S3 Vectors for retrieval using the `enja-s3-vectors` secret.
+- `run_s3` does **not** load model weights directly from your object S3 bucket.
+
+### What You Need
+
+- `HF_TOKEN`
+- `VECTORS_AWS_ACCESS_KEY_ID`
+- `VECTORS_AWS_SECRET_ACCESS_KEY`
+- `VECTORS_AWS_DEFAULT_REGION`
+- Modal CLI authenticated
+
+### Step 1: Install and Create Secrets
+
+PowerShell:
+
+```powershell
+.\venv\Scripts\python.exe -m pip install -e .
+.\venv\Scripts\modal.exe secret create enja-hf --from-dotenv .env --env dev --force
+.\venv\Scripts\modal.exe secret create enja-s3-vectors --from-dotenv .env --env dev --force
+```
+
+### Step 2: Create the Modal Volumes
+
+```powershell
+.\venv\Scripts\modal.exe volume create enja-base-models --env dev
+.\venv\Scripts\modal.exe volume create enja-model-artifacts --env dev
+.\venv\Scripts\modal.exe volume create enja-data --env dev
+.\venv\Scripts\modal.exe volume create enja-results --env dev
+```
+
+### Step 3: Prepare an Input Dataset
+
+The `S3` inference config expects:
+
+- `data/splits/test_v1.jsonl` locally
+- uploaded to the `enja-data` volume at `/data/splits/test_v1.jsonl`
+
+Each JSONL row should look like:
+
+```json
+{"id":"ex-1","source_en":"Please update your password.","target_ja":"パスワードを更新してください。"}
+```
+
+To generate a larger demo dataset from `kb/eng-jap.tsv`:
+
+```powershell
+.\venv\Scripts\python.exe -m scripts.build_kb_splits --train-count 500 --dev-count 500 --test-count 500
+```
+
+This writes:
+
+- `data/splits/train_v1.jsonl`
+- `data/splits/dev_v1.jsonl`
+- `data/splits/test_v1.jsonl`
+
+### Step 4: Upload the Splits to Modal
+
+Upload the files one by one to the volume root path. Note that Modal CLI paths are relative to the volume root, not the container mount path.
+
+```powershell
+.\venv\Scripts\modal.exe volume put enja-data .\data\splits\train_v1.jsonl /data/splits/train_v1.jsonl --env dev --force
+.\venv\Scripts\modal.exe volume put enja-data .\data\splits\dev_v1.jsonl /data/splits/dev_v1.jsonl --env dev --force
+.\venv\Scripts\modal.exe volume put enja-data .\data\splits\test_v1.jsonl /data/splits/test_v1.jsonl --env dev --force
+```
+
+### Step 5: Make Sure the Base Model Is Available
+
+Option A: keep a local copy in the `enja-base-models` Modal volume:
+
+```powershell
+.\venv\Scripts\modal.exe run -m modal_jobs.download_qwen --repo-id Qwen/Qwen2.5-7B-Instruct --env dev --timestamps
+```
+
+Option B: let `run_s3` fall back to Hugging Face using `HF_TOKEN`.
+
+The `S3` config currently points at:
+
+- base model: `/models/qwen-qwen2.5-7b-instruct`
+- adapter: `/artifacts/adapters/translation/final`
+
+### Step 6: Optional but Recommended - Train the Adapter
+
+If you want `fine-tuned + RAG + agent loop`, train the S1 adapter first:
+
+```powershell
+.\venv\Scripts\modal.exe run -m modal_jobs.train_translation --config configs/finetune_translation.yaml --env dev --timestamps
+```
+
+This writes the adapter into the `enja-model-artifacts` volume, which is mounted inside the container at `/artifacts`.
+
+To verify it exists, list the volume path:
+
+```powershell
+.\venv\Scripts\modal.exe volume ls enja-model-artifacts /adapters/translation/final --env dev
+```
+
+You should see files such as:
+
+- `adapter_config.json`
+- `adapter_model.safetensors`
+
+If the adapter is missing, `run_s3` will still run, but it will use the base model only.
+
+### Step 7: Run S3 Agentic RAG Inference
+
+```powershell
+.\venv\Scripts\modal.exe run -m modal_jobs.run_s3 --config configs/s3_inference.yaml --env dev --timestamps
+```
+
+The current S3 config is [configs/s3_inference.yaml](configs/s3_inference.yaml).
+
+### Step 8: Fetch Metrics and Outputs
+
+The run writes results to the `enja-results` volume:
+
+```powershell
+.\venv\Scripts\modal.exe volume ls enja-results /results/metrics --env dev
+.\venv\Scripts\modal.exe volume get enja-results /results/metrics/s3_metrics.json .\results\ --env dev --force
+.\venv\Scripts\modal.exe volume get enja-results /results/metrics/s3_outputs.jsonl .\results\ --env dev --force
+```
+
+Open them locally:
+
+```powershell
+Get-Content .\results\s3_metrics.json
+Get-Content .\results\s3_outputs.jsonl
+```
+
+### What the Metrics Mean
+
+- `avg_latency_ms`: average end-to-end generation latency
+- `avg_coverage_score`: the critic model's self-score for adequacy/coverage
+- `total_rewrite_steps`: how many rewrite retries the agent used
+- `total_revision_steps`: how many revision retries the agent used
+- `bleu`: corpus BLEU against `target_ja` in the test file
+
+### Common Issues
+
+`No such file or directory` when using `modal volume ls`:
+
+- Use the Modal CLI explicitly: `.\venv\Scripts\modal.exe ...`
+- Volume paths are rooted at the volume itself. For example:
+  - `enja-model-artifacts /adapters/translation/final`
+  - not `enja-model-artifacts /artifacts/adapters/translation/final`
+
+`Unexpected UTF-8 BOM` when reading JSONL:
+
+- The repo now reads JSONL with `utf-8-sig`, so PowerShell-written UTF-8 files should work.
+
+`adapter_dir not found: /artifacts/adapters/translation/final`:
+
+- The run is using the base model only.
+- Train the adapter or upload it into `enja-model-artifacts` at `/adapters/translation/final`.
+
+`bleu: 0.0`:
+
+- Check `results/s3_outputs.jsonl` to compare predictions vs references.
+- This can happen when the generated output diverges heavily from the reference wording, even if the translation is not obviously nonsensical.
+
+### Minimal Smoke Test
+
+If you only want to prove the pipeline runs end to end:
+
+1. Generate `train/dev/test` with `scripts.build_kb_splits`.
+2. Upload the files to `enja-data`.
+3. Run `modal_jobs.run_s3`.
+
+If you also want the fine-tuned adapter path to be exercised:
+
+1. Upload `train/dev/test`.
+2. Run `modal_jobs.train_translation`.
+3. Run `modal_jobs.run_s3`.
+
 ## End-to-End S1 Pipeline
 
 ### Step 1: Download Base Model

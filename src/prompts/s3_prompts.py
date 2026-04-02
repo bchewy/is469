@@ -69,7 +69,7 @@ SYSTEM_ERROR_CHECK_PROMPT = (
     "Judge whether the Japanese translation contains a meaningful error relative to the English source. "
     "Use only these categories when needed: "
     + ", ".join(ERROR_LABEL_CATEGORIES)
-    + ". Return ONLY valid JSON."
+    + ". Return ONLY valid JSON. Output ONLY Japanese translation."
 )
 
 

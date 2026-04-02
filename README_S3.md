@@ -54,6 +54,8 @@ flowchart TD
     M --> T[s3_outputs.jsonl]
 ```
 
+
+
 ## Important Files
 
 - Entry point: [modal_jobs/run_s3.py](modal_jobs/run_s3.py)
@@ -249,17 +251,17 @@ Completed changes in this handoff cycle:
 - `kb/glossary_chunks_embedded_full_vectors.jsonl`
 - `kb/translation_memory_chunks_embedded_full_vectors.jsonl`
 
-3. Retrieval evaluation matching was relaxed in `src/eval/s3_eval.py`:
+1. Retrieval evaluation matching was relaxed in `src/eval/s3_eval.py`:
 
 - overlap threshold lowered from `0.6` to `0.4`
 - normalized Japanese match added for glossary approved terms
 
-4. Post-upload retrieval output now includes `source_file` hits from:
+1. Post-upload retrieval output now includes `source_file` hits from:
 
 - `glossary_chunks_embedded_full`
 - `translation_memory_chunks_embedded_full`
 
-5. Error-ID lookup alignment was fixed:
+1. Error-ID lookup alignment was fixed:
 
 - `canonicalize_id` is now imported and used in `modal_jobs/run_s3.py` for gold label lookup
 - lookup now uses canonicalized IDs so prefixed test IDs (`annot-*`, `tm-*`, `engjap-*`) align with gold labels
@@ -379,24 +381,24 @@ Prioritized work to improve retrieval metrics from current baseline:
 - Current state is too small for robust retrieval hit/recall.
 - Target: add at least 100-300 high-quality EN-JA pairs in the same domain as eval data.
 
-2. Expand glossary breadth (`kb/glossary.csv`).
+1. Expand glossary breadth (`kb/glossary.csv`).
 
 - Add high-frequency UI/product/account/security terms.
 - Include approved Japanese forms and meaningful forbidden variants.
 - Target: add 50-150 high-impact entries first.
 
-3. Expand retrieval-sensitive eval subset (`data/splits/test_v1.jsonl`).
+1. Expand retrieval-sensitive eval subset (`data/splits/test_v1.jsonl`).
 
 - Add a focused subset where glossary/TM matches should clearly exist.
 - This prevents style/grammar-only retrieval from dominating metrics.
 - Target: 50-100 retrieval-targeted test rows.
 
-4. Expand retrieval budget for eval runs (`configs/s3_inference.yaml`).
+1. Expand retrieval budget for eval runs (`configs/s3_inference.yaml`).
 
 - Increase retrieval `top_k` for evaluation-only runs (for example 20-30).
 - Compare metrics with fixed seeds/settings and record before/after.
 
-5. Rebuild/re-embed/re-upload loop after each KB expansion.
+1. Rebuild/re-embed/re-upload loop after each KB expansion.
 
 - Recreate chunk files for glossary/TM additions.
 - Re-embed and re-upload vectors.
@@ -406,12 +408,14 @@ Prioritized work to improve retrieval metrics from current baseline:
 
 The S3 Vectors index `rag-vector-2` in bucket `is469-genai-grp-project` currently contains:
 
+
 | Source file        | Content               | Indexed? |
 | ------------------ | --------------------- | -------- |
 | annotations_raw    | Raw EN-JA annotations | No       |
 | eng-jap            | Parallel corpus       | No       |
 | glossary           | Approved terminology  | Yes      |
 | translation_memory | Curated TM examples   | Yes      |
+
 
 Last audited: 2026-04-01
 Last re-indexed: 2026-04-01
@@ -516,3 +520,4 @@ If the next teammate only has 10 minutes, tell them this:
 6. Terminology evaluation is partially working.
 7. Retrieval evaluation still needs better grounding.
 8. Error-ID evaluation is fixed on aligned-ID eval data; keep separate split for reliable F1 reporting.
+
