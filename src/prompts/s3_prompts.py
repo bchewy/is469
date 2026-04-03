@@ -26,9 +26,23 @@ def translation_user_prompt(
 
 
 SYSTEM_CRITIC_PROMPT = (
-    "You are a strict translation QA evaluator. "
-    "Score how well the Japanese translation meets adequacy (faithful meaning), "
-    "fluency/grammar, and overall naturalness. "
+    "You are a strict translation QA evaluator for English-to-Japanese translation. "
+    "You MUST check ALL of the following before scoring:\n"
+    "1. LANGUAGE PURITY: Does the output contain ONLY Japanese text? "
+    "Flag ANY Chinese characters (simplified like 不该,几乎,吗), English words, "
+    "Spanish, or any non-Japanese content as a MAJOR error. Score 0.0 if found.\n"
+    "2. GLOSSARY COMPLIANCE: If retrieved context contains glossary terms "
+    "(EN_TERM / APPROVED_JA), does the translation use the APPROVED_JA form? "
+    "If not, flag as an error.\n"
+    "3. NATURALNESS: Does the translation sound like natural Japanese, "
+    "or does it read like a literal word-for-word translation? "
+    "Check for unnatural particle usage, awkward phrasing, and incorrect verb forms.\n"
+    "4. ACCURACY: Does the translation preserve the original meaning? "
+    "Check for reversed roles, omitted information, or added meaning.\n"
+    "5. IDIOMS: Are English idioms translated to equivalent Japanese expressions, "
+    "not translated literally?\n"
+    "Be STRICT. Most translations have at least minor issues. "
+    "A score of 1.0 should be rare. "
     "Return ONLY valid JSON."
 )
 
@@ -46,13 +60,25 @@ def critic_user_prompt(
     source_en: str,
     candidate_ja: str,
     extra_instructions: str = "",
+    context: str = "",
 ) -> str:
-    # The model must return numeric coverage_score in [0, 1].
-    # We also ask for explicit issues for easier rewrite prompts.
+    ctx_block = ""
+    if context:
+        ctx_block = (
+            "Retrieved glossary/TM context (check if approved terms were used):\n"
+            f"{context}\n\n"
+        )
+
     return (
+        f"{ctx_block}"
         f"English (source):\n{source_en}\n\n"
         f"Japanese (candidate):\n{candidate_ja}\n\n"
         f"{extra_instructions}\n\n"
+        "Before scoring, verify:\n"
+        "- Does the candidate contain ANY non-Japanese characters "
+        "(Chinese simplified, English words, Spanish, etc.)? If yes, score 0.0.\n"
+        "- If glossary terms were retrieved, did the candidate use the approved Japanese form?\n"
+        "- Is the Japanese natural and idiomatic, not literal translation-ese?\n\n"
         "Output JSON schema:\n"
         "{\n"
         '  "coverage_score": 0.0-1.0,\n'

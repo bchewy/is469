@@ -224,6 +224,7 @@ def translate_with_agentic_loop(
                 source_en=source_en,
                 candidate_ja=candidate,
                 extra_instructions="Assess adequacy and fluency. Be strict.",
+                context=context,
             ),
         },
     ]
@@ -303,6 +304,7 @@ def translate_with_agentic_loop(
                     source_en=source_en,
                     candidate_ja=candidate,
                     extra_instructions="Re-evaluate the revised translation. Strictly score 0-1.",
+                    context=context,
                 ),
             },
         ]

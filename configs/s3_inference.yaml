@@ -6,9 +6,8 @@ project:
 model:
   base_model_id: Qwen/Qwen2.5-7B-Instruct
   # Assumes the Qwen model is present in the Modal /models volume.
-  model_local_path: /models/qwen-qwen2.5-7b-instruct
-  # Assumes the S1 adapter has been written into the Modal /artifacts volume.
-  adapter_dir: /artifacts/adapters/translation/final
+  model_s3_uri: "s3://is469-genai-brianchew/models/qwen2.5-7b-instruct/qwen-qwen2.5-7b-instruct/"
+  adapter_s3_uri: "s3://is469-genai-brianchew/adapters/translation-qlora-v1/"
 
 variant:
   id: s3
