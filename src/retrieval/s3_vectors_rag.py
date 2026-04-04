@@ -33,16 +33,15 @@ def _read_jsonl_line(path: Path, line_number: int) -> dict[str, Any] | None:
 
 
 def _guess_kb_paths(kb_dir: Path, source_file: str) -> list[Path]:
-    """Map S3 metadata source_file (see rag/aws_vectorDB.py) to local JSONL paths."""
-    source = source_file.strip()
-    stem = source[:-6] if source.lower().endswith(".jsonl") else source
-
+    stem = source_file.strip()
+    # Strip .jsonl extension if already present in metadata source_file value
+    if stem.endswith(".jsonl"):
+        stem = stem[:-6]
     candidates = [
-        kb_dir / source,
         kb_dir / f"{stem}.jsonl",
         kb_dir / f"{stem}_vectors.jsonl",
+        kb_dir / f"{stem}_embedded_full.jsonl",
     ]
-    # If ingest used *\_vectors.jsonl on S3 but repo keeps *\_embedded_full.jsonl:
     if stem.endswith("_full"):
         candidates.append(kb_dir / f"{stem.replace('_full', '')}_embedded_full.jsonl")
     return [p for p in candidates if p.is_file()]
