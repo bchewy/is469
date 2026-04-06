@@ -1,0 +1,72 @@
+{
+  "baseline": {
+    "output_path": "D:\\GitHub\\is469\\results\\advanced_rag_pipeline_outputs.jsonl",
+    "num_samples": 20,
+    "avg_latency_ms": 27354.82,
+    "avg_retrieval_ms": null,
+    "avg_coverage_score": null,
+    "bleu": 55.7,
+    "bleu_tokenizer": "char",
+    "chrfpp": 50.75,
+    "comet": 0.9437,
+    "retrieval_eval_samples": 20,
+    "retrieval_hit_at_k": 0.95,
+    "retrieval_recall_at_k": 0.9565,
+    "terminology_eval_samples": 3,
+    "terminology_term_total": 3,
+    "terminology_correct_terms": 2,
+    "terminology_accuracy": 0.6667,
+    "error_id_eval_samples": 20,
+    "error_binary_f1": 0.5926,
+    "error_category_macro_f1": 0.2861,
+    "error_category_f1": {
+      "Terminology": 0.4,
+      "Accuracy": 0.1818,
+      "Fluency/Grammar": 0.6667,
+      "Style/Register": 0.1818,
+      "Locale/Formatting": 0.0
+    },
+    "error_gold_positive_count": 8,
+    "error_pred_positive_count": 19,
+    "error_check_fallback_count": 1,
+    "error_eval_text_source_counts": {
+      "candidate_ja": 20
+    },
+    "variant": "baseline"
+  },
+  "reranked": {
+    "output_path": "D:\\GitHub\\is469\\results\\advanced_rag_pipeline_outputs.jsonl",
+    "num_samples": 20,
+    "avg_latency_ms": 38580.55,
+    "avg_retrieval_ms": null,
+    "avg_coverage_score": null,
+    "bleu": 50.75,
+    "bleu_tokenizer": "char",
+    "chrfpp": 43.32,
+    "comet": 0.9224,
+    "retrieval_eval_samples": 20,
+    "retrieval_hit_at_k": 0.95,
+    "retrieval_recall_at_k": 0.9565,
+    "terminology_eval_samples": 3,
+    "terminology_term_total": 3,
+    "terminology_correct_terms": 2,
+    "terminology_accuracy": 0.6667,
+    "error_id_eval_samples": 20,
+    "error_binary_f1": 0.5926,
+    "error_category_macro_f1": 0.2861,
+    "error_category_f1": {
+      "Terminology": 0.4,
+      "Accuracy": 0.1818,
+      "Fluency/Grammar": 0.6667,
+      "Style/Register": 0.1818,
+      "Locale/Formatting": 0.0
+    },
+    "error_gold_positive_count": 8,
+    "error_pred_positive_count": 19,
+    "error_check_fallback_count": 1,
+    "error_eval_text_source_counts": {
+      "candidate_ja": 20
+    },
+    "variant": "reranked"
+  }
+}

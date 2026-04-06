@@ -8,7 +8,6 @@ __pycache__/
 .DS_Store
 .env
 qwen-qwen2.5-7b-instruct/
-results/
 data/raw/
 data/processed/
 data/splits/

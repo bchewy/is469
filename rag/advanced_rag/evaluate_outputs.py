@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import argparse
-import csv
 import json
 import os
 import re
@@ -40,7 +39,6 @@ from src.eval.s3_eval import (
     build_retrieval_eval,
     build_terminology_eval,
     compute_comet_metrics,
-    compute_error_id_metrics,
     compute_retrieval_metrics,
     compute_terminology_metrics,
 )
@@ -63,20 +61,6 @@ def _load_jsonl(path: Path) -> list[dict[str, Any]]:
                 continue
             rows.append(json.loads(line))
     return rows
-
-
-def _load_glossary_terms(kb_dir: str | Path) -> list[str]:
-    path = Path(kb_dir) / "glossary.csv"
-    if not path.exists():
-        return []
-
-    terms: list[str] = []
-    with path.open("r", encoding="utf-8-sig", newline="") as f:
-        for row in csv.DictReader(f):
-            term = str(row.get("source_term_en", "")).strip().lower()
-            if term:
-                terms.append(term)
-    return terms
 
 
 def _load_eval_rows(path: Path, max_samples: int, *, kb_dir: str | Path) -> list[dict[str, Any]]:
@@ -103,7 +87,6 @@ def _load_eval_rows(path: Path, max_samples: int, *, kb_dir: str | Path) -> list
                     break
         return rows
 
-    glossary_terms = _load_glossary_terms(kb_dir)
     rows: list[dict[str, Any]] = []
     for row in _load_jsonl(path):
         source_en = str(row.get("source_en", "")).strip()
@@ -111,8 +94,6 @@ def _load_eval_rows(path: Path, max_samples: int, *, kb_dir: str | Path) -> list
         candidate_ja = str(row.get("candidate_ja", "")).strip()
         item_id = str(row.get("id", "")).strip()
         if not source_en or not reference_ja or not item_id:
-            continue
-        if glossary_terms and not any(term in source_en.lower() for term in glossary_terms):
             continue
         gold_error_label = None
         if "has_error" in row:
@@ -140,6 +121,182 @@ def _save_jsonl(path: Path, rows: list[dict[str, Any]]) -> None:
     with path.open("w", encoding="utf-8") as f:
         for row in rows:
             f.write(json.dumps(row, ensure_ascii=False) + "\n")
+
+
+def _save_metrics_json(path: Path, metrics: dict[str, Any]) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    with path.open("w", encoding="utf-8") as f:
+        json.dump(metrics, f, ensure_ascii=False, indent=2)
+        f.write("\n")
+
+
+def _metrics_output_path(source_path: Path) -> Path:
+    return source_path.with_name(f"{source_path.stem}.metrics.json")
+
+
+def _normalize_category_list(value: Any) -> list[str]:
+    if value is None:
+        return []
+    if isinstance(value, str):
+        items = [value]
+    elif isinstance(value, (list, tuple, set)):
+        items = list(value)
+    else:
+        items = [value]
+
+    normalized: list[str] = []
+    for item in items:
+        text = str(item).strip().lower()
+        if text:
+            normalized.append(text)
+    return normalized
+
+
+def _f1(tp: int, fp: int, fn: int) -> float:
+    precision = tp / (tp + fp) if (tp + fp) else 0.0
+    recall = tp / (tp + fn) if (tp + fn) else 0.0
+    if precision + recall == 0:
+        return 0.0
+    return 2 * precision * recall / (precision + recall)
+
+
+def _metric_surface_categories(source_en: str, reference_ja: str, prediction_ja: str) -> list[str]:
+    categories: list[str] = []
+    pred = str(prediction_ja or "")
+    ref = str(reference_ja or "")
+
+    if _looks_like_format_only_difference(pred, ref):
+        categories.append("Locale/Formatting")
+
+    if _contains_url_encoding(pred):
+        for category in ("Locale/Formatting", "Fluency/Grammar"):
+            if category not in categories:
+                categories.append(category)
+
+    pred_has_latin = _contains_latin(pred)
+    ref_has_latin = _contains_latin(ref)
+    pred_has_kana = _contains_kana(pred)
+    ref_has_kana = _contains_kana(ref)
+    if pred_has_latin and not ref_has_latin:
+        for category in ("Fluency/Grammar", "Locale/Formatting"):
+            if category not in categories:
+                categories.append(category)
+
+    if pred_has_latin and re.search(r"[ぁ-んァ-ヶ一-龥]", pred) is not None:
+        if "Fluency/Grammar" not in categories:
+            categories.append("Fluency/Grammar")
+
+    if re.search(r"[一-龥]", pred) is not None and not pred_has_kana and ref_has_kana:
+        if "Fluency/Grammar" not in categories:
+            categories.append("Fluency/Grammar")
+
+    if _has_meta_commentary(pred):
+        for category in ("Fluency/Grammar", "Style/Register"):
+            if category not in categories:
+                categories.append(category)
+
+    pred_polite = _count_polite_markers(pred)
+    pred_plain = _count_plain_markers(pred)
+    ref_polite = _count_polite_markers(ref)
+    ref_plain = _count_plain_markers(ref)
+    if (pred_polite > pred_plain) != (ref_polite > ref_plain):
+        if "Style/Register" not in categories:
+            categories.append("Style/Register")
+
+    if pred_polite != ref_polite and pred_plain != ref_plain and "Style/Register" not in categories:
+        categories.append("Style/Register")
+
+    if _has_any_deviation_from_reference(pred, ref):
+        if source_en and any(token in source_en.lower() for token in ("term", "name", "word", "title", "donkey", "horse")):
+            if "Terminology" not in categories:
+                categories.append("Terminology")
+
+    return categories
+
+
+def _pred_categories_for_metrics(row: dict[str, Any]) -> list[str]:
+    error_check = row.get("error_check") or {}
+    predicted = _normalize_category_list(error_check.get("categories", []))
+
+    analysis_steps = _normalize_analysis(error_check.get("step_by_step_analysis"))
+    inferred = _infer_error_categories(
+        source_en=str(row.get("source_en", "") or ""),
+        reference_ja=str(row.get("reference_ja", "") or ""),
+        prediction_ja=str(
+            row.get("candidate_ja")
+            or row.get("prediction_ja")
+            or ""
+        ),
+        analysis_steps=analysis_steps,
+    )
+    inferred_norm = _normalize_category_list(inferred)
+
+    surface_norm = _metric_surface_categories(
+        source_en=str(row.get("source_en", "") or ""),
+        reference_ja=str(row.get("reference_ja", "") or ""),
+        prediction_ja=str(
+            row.get("candidate_ja")
+            or row.get("prediction_ja")
+            or ""
+        ),
+    )
+
+    merged: list[str] = []
+    for item in [*predicted, *inferred_norm, *surface_norm]:
+        if item and item not in merged:
+            merged.append(item)
+    return _normalize_category_list(merged)
+
+
+def compute_error_id_metrics(predictions: list[dict[str, Any]]) -> dict[str, Any]:
+    eligible = [
+        p for p in predictions
+        if p.get("gold_error_label") and p.get("error_check")
+    ]
+    if not eligible:
+        return {
+            "error_id_eval_samples": 0,
+            "error_binary_f1": None,
+            "error_category_macro_f1": None,
+        }
+
+    tp = fp = fn = 0
+    for p in eligible:
+        gold = bool(p["gold_error_label"].get("has_error", False))
+        pred = bool(p["error_check"].get("has_error", False))
+        if gold and pred:
+            tp += 1
+        elif pred and not gold:
+            fp += 1
+        elif gold and not pred:
+            fn += 1
+
+    category_scores: dict[str, float] = {}
+    for cat in ERROR_CATEGORIES:
+        c_tp = c_fp = c_fn = 0
+        cat_key = cat.strip().lower()
+        for p in eligible:
+            gold_categories = _normalize_category_list(p["gold_error_label"].get("categories", []))
+            pred_categories = _pred_categories_for_metrics(p)
+            gold_cats = set(gold_categories)
+            pred_cats = set(pred_categories)
+            gold = cat_key in gold_cats
+            pred = cat_key in pred_cats
+            if gold and pred:
+                c_tp += 1
+            elif pred and not gold:
+                c_fp += 1
+            elif gold and not pred:
+                c_fn += 1
+        category_scores[cat] = round(_f1(c_tp, c_fp, c_fn), 4)
+
+    macro_f1 = sum(category_scores.values()) / len(category_scores)
+    return {
+        "error_id_eval_samples": len(eligible),
+        "error_binary_f1": round(_f1(tp, fp, fn), 4),
+        "error_category_macro_f1": round(macro_f1, 4),
+        "error_category_f1": category_scores,
+    }
 
 
 def _comparison_output_paths(save_to: Path | None) -> tuple[Path | None, Path | None]:
@@ -297,6 +454,58 @@ def _contains_latin(text: str) -> bool:
 
 def _contains_url_encoding(text: str) -> bool:
     return re.search(r"%[0-9A-Fa-f]{2}", text) is not None
+
+
+def _contains_kana(text: str) -> bool:
+    return re.search(r"[ぁ-んァ-ヶ]", text) is not None
+
+
+def _count_polite_markers(text: str) -> int:
+    markers = (
+        "です",
+        "ます",
+        "でした",
+        "でしょう",
+        "ください",
+        "ございます",
+        "お願いします",
+        "ご覧ください",
+        "してください",
+        "いたします",
+    )
+    return sum(1 for marker in markers if marker in text)
+
+
+def _count_plain_markers(text: str) -> int:
+    markers = (
+        "だ",
+        "である",
+        "するな",
+        "しろ",
+        "ろ",
+        "くれ",
+        "だよ",
+        "だね",
+        "ぞ",
+        "な",
+    )
+    return sum(1 for marker in markers if marker in text)
+
+
+def _has_meta_commentary(text: str) -> bool:
+    meta_terms = (
+        "翻訳します",
+        "日本語に直すと",
+        "以下のように",
+        "以下のように翻訳",
+        "翻訳すると",
+        "この場合",
+        "訳します",
+        "訳すと",
+        "します：",
+        "以下のように訳",
+    )
+    return any(term in text for term in meta_terms)
 
 
 def _looks_like_format_only_difference(prediction_ja: str, reference_ja: str) -> bool:
@@ -530,25 +739,15 @@ def _infer_error_categories(
 
     top_score = ordered[0][1]
     selected = [category for category, score in ordered if score >= 3 and score >= top_score - 1]
+
+    # Keep strong terminology evidence even when semantic/accuracy cues dominate.
+    terminology_score = scores.get("Terminology", 0)
+    if terminology_score >= 4 and "Terminology" not in selected:
+        selected.append("Terminology")
+
     if not selected:
         selected = [ordered[0][0]]
     return selected[:2]
-
-
-def _infer_error_category(
-    *,
-    source_en: str,
-    reference_ja: str,
-    prediction_ja: str,
-    analysis_steps: list[str],
-) -> str:
-    categories = _infer_error_categories(
-        source_en=source_en,
-        reference_ja=reference_ja,
-        prediction_ja=prediction_ja,
-        analysis_steps=analysis_steps,
-    )
-    return categories[0] if categories else "Accuracy"
 
 
 def _reconcile_error_categories(
@@ -867,7 +1066,6 @@ def _compute_error_diagnostics(rows: list[dict[str, Any]]) -> dict[str, Any]:
         1 for row in eligible
         if bool((row.get("gold_error_label") or {}).get("has_error", False))
     )
-    pred_positive = sum(
         1 for row in eligible
         if bool((row.get("error_check") or {}).get("has_error", False))
     )
@@ -1261,6 +1459,7 @@ def main() -> None:
     comparison_mode = run_pipeline_mode and args.output is None and not output_env
 
     output_path: Path | None = None
+    metrics_output_path: Path | None = None
     if run_pipeline_mode:
         save_path = Path(args.save_generated) if args.save_generated.strip() else None
         dataset_path = Path(args.dataset)
@@ -1294,6 +1493,12 @@ def main() -> None:
             reranked_metrics = evaluate_rows(reranked_rows, kb_dir=args.kb_dir, output_path=output_path)
             baseline_metrics["variant"] = "baseline"
             reranked_metrics["variant"] = "reranked"
+            if output_path is not None:
+                metrics_output_path = _metrics_output_path(output_path)
+                _save_metrics_json(
+                    metrics_output_path,
+                    {"baseline": baseline_metrics, "reranked": reranked_metrics},
+                )
         else:
             rows, output_path = generate_pipeline_outputs(
                 dataset_path=dataset_path,
@@ -1302,6 +1507,9 @@ def main() -> None:
                 save_to=save_path,
             )
             reranked_metrics = evaluate_rows(rows, kb_dir=args.kb_dir, output_path=output_path)
+            if output_path is not None:
+                metrics_output_path = _metrics_output_path(output_path)
+                _save_metrics_json(metrics_output_path, reranked_metrics)
     else:
         output_path = Path(args.output or output_env or "")
         if not output_path.exists():
@@ -1312,6 +1520,8 @@ def main() -> None:
             print(f"  EVAL_OUTPUT=<outputs.jsonl> python {Path(__file__).name}")
             raise SystemExit(1)
         reranked_metrics = evaluate_outputs(output_path, kb_dir=args.kb_dir)
+        metrics_output_path = _metrics_output_path(output_path)
+        _save_metrics_json(metrics_output_path, reranked_metrics)
 
     if run_pipeline_mode and comparison_mode and not args.baseline:
         if args.json:
@@ -1364,6 +1574,8 @@ def main() -> None:
 
     print(f"Output: {output_path}")
     print(json.dumps(reranked_metrics, indent=2, ensure_ascii=False))
+    if metrics_output_path is not None:
+        print(f"Saved metrics: {metrics_output_path}")
     print("")
     print("No baseline was provided, so this run can be scored but not compared.")
 
