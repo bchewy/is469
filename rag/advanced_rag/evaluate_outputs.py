@@ -345,6 +345,32 @@ def _chunk_to_eval_dict(chunk: Any) -> dict[str, Any]:
     }
 
 
+def _coverage_score_from_chunks(chunks: list[Any]) -> float | None:
+    if not chunks:
+        return None
+
+    scores: list[float] = []
+    for chunk in chunks:
+        distance = getattr(chunk, "distance", None)
+        if isinstance(chunk, dict):
+            distance = chunk.get("distance")
+
+        try:
+            if distance is not None:
+                dist = float(distance)
+                scores.append(max(0.0, 1.0 - min(dist, 1.0)))
+                continue
+        except (TypeError, ValueError):
+            pass
+
+        text = getattr(chunk, "text", "")
+        if isinstance(chunk, dict):
+            text = chunk.get("text") or chunk.get("text_preview") or ""
+        scores.append(0.5 if str(text).strip() else 0.0)
+
+    return round(sum(scores) / len(scores), 4) if scores else None
+
+
 def _default_error_check(prediction_ja: str) -> dict[str, Any]:
     text = str(prediction_ja).strip()
     has_error = not bool(text) or any(token in text for token in ("不该", "SUCHOD", "[...", "：", "<unk>"))
@@ -1023,6 +1049,18 @@ def _prepare_rows(rows: list[dict[str, Any]], kb_dir: str | Path) -> list[dict[s
         item["retrieval_eval"] = _maybe_build_retrieval_eval(item, assets) or {}
         item["terminology_eval"] = _maybe_build_terminology_eval(item, assets) or {}
 
+        if _coerce_float(item.get("coverage_score")) is None:
+            recall = _coerce_float((item.get("retrieval_eval") or {}).get("recall"))
+            if recall is not None:
+                item["coverage_score"] = round(max(0.0, min(1.0, recall)), 4)
+            elif "hit_at_k" in (item.get("retrieval_eval") or {}):
+                item["coverage_score"] = 1.0 if bool(item["retrieval_eval"].get("hit_at_k")) else 0.0
+
+        if _coerce_float(item.get("retrieval_ms")) is None:
+            latency = _coerce_float(item.get("latency_ms"))
+            if latency is not None:
+                item["retrieval_ms"] = round(latency, 2)
+
         gold_error_label = item.get("gold_error_label")
         if not gold_error_label:
             lookup_id = item["id"]
@@ -1066,6 +1104,7 @@ def _compute_error_diagnostics(rows: list[dict[str, Any]]) -> dict[str, Any]:
         1 for row in eligible
         if bool((row.get("gold_error_label") or {}).get("has_error", False))
     )
+    pred_positive = sum(
         1 for row in eligible
         if bool((row.get("error_check") or {}).get("has_error", False))
     )
@@ -1116,11 +1155,14 @@ def evaluate_rows(rows: list[dict[str, Any]], *, kb_dir: str | Path, output_path
     return metrics
 
 
-def _run_pipeline_without_rerank(arp: Any, pipeline: Any, query: str) -> Any:
+def _run_pipeline_without_rerank(arp: Any, pipeline: Any, query: str) -> tuple[Any, float, float | None]:
+    retrieval_start = time.perf_counter()
     retrieved = pipeline.retrieve_weighted_stratified(query)
+    retrieval_ms = round((time.perf_counter() - retrieval_start) * 1000.0, 2)
+    coverage_score = _coverage_score_from_chunks(retrieved)
     context = arp.format_context(retrieved, max_chars=pipeline.max_context_chars)
     answer = pipeline._answer_query(query, context)
-    return arp.RerankedResult(query=query, context=context, chunks=retrieved, answer=answer)
+    return arp.RerankedResult(query=query, context=context, chunks=retrieved, answer=answer), retrieval_ms, coverage_score
 
 
 def evaluate_outputs(output_path: Path, *, kb_dir: str | Path) -> dict[str, Any]:
@@ -1164,8 +1206,15 @@ def generate_pipeline_outputs(
     for i, sample in enumerate(eval_set, start=1):
         source_en = sample["source_en"]
         start = time.perf_counter()
-        result = pipeline.run(source_en)
+        retrieval_start = time.perf_counter()
+        retrieved = pipeline.retrieve_weighted_stratified(source_en)
+        retrieval_ms = round((time.perf_counter() - retrieval_start) * 1000.0, 2)
+        reranked = pipeline.rerank(source_en, retrieved)
+        context = arp.format_context(reranked, max_chars=pipeline.max_context_chars)
+        answer = pipeline._answer_query(source_en, context)
+        result = arp.RerankedResult(query=source_en, context=context, chunks=reranked, answer=answer)
         latency_ms = round((time.perf_counter() - start) * 1000.0, 2)
+        coverage_score = _coverage_score_from_chunks(result.chunks)
         error_eval_text, error_eval_source = _error_eval_text(sample, result.answer)
         error_check = _llm_error_check(
             arp,
@@ -1190,6 +1239,8 @@ def generate_pipeline_outputs(
             "prediction_ja": result.answer,
             "retrieval_chunks": chunks,
             "latency_ms": latency_ms,
+            "retrieval_ms": retrieval_ms,
+            "coverage_score": coverage_score,
             "error_check": error_check,
             "generated_error_check": generated_error_check,
             "error_eval_text_source": error_eval_source,
@@ -1242,8 +1293,20 @@ def generate_comparison_outputs(
         source_en = sample["source_en"]
 
         start = time.perf_counter()
-        reranked_result = pipeline.run(source_en)
+        reranked_retrieval_start = time.perf_counter()
+        reranked_retrieved = pipeline.retrieve_weighted_stratified(source_en)
+        reranked_retrieval_ms = round((time.perf_counter() - reranked_retrieval_start) * 1000.0, 2)
+        reranked_chunks = pipeline.rerank(source_en, reranked_retrieved)
+        reranked_context = arp.format_context(reranked_chunks, max_chars=pipeline.max_context_chars)
+        reranked_answer = pipeline._answer_query(source_en, reranked_context)
+        reranked_result = arp.RerankedResult(
+            query=source_en,
+            context=reranked_context,
+            chunks=reranked_chunks,
+            answer=reranked_answer,
+        )
         reranked_latency_ms = round((time.perf_counter() - start) * 1000.0, 2)
+        reranked_coverage_score = _coverage_score_from_chunks(reranked_result.chunks)
         reranked_error_eval_text, reranked_error_eval_source = _error_eval_text(sample, reranked_result.answer)
         reranked_error_check = _llm_error_check(
             arp,
@@ -1265,7 +1328,11 @@ def generate_comparison_outputs(
         )
 
         start = time.perf_counter()
-        baseline_result = _run_pipeline_without_rerank(arp, pipeline, source_en)
+        baseline_result, baseline_retrieval_ms, baseline_coverage_score = _run_pipeline_without_rerank(
+            arp,
+            pipeline,
+            source_en,
+        )
         baseline_latency_ms = round((time.perf_counter() - start) * 1000.0, 2)
         baseline_error_eval_text, baseline_error_eval_source = _error_eval_text(sample, baseline_result.answer)
         baseline_error_check = _llm_error_check(
@@ -1301,6 +1368,8 @@ def generate_comparison_outputs(
                 "prediction_ja": reranked_result.answer,
                 "retrieval_chunks": [_chunk_to_eval_dict(chunk) for chunk in reranked_result.chunks],
                 "latency_ms": reranked_latency_ms,
+                "retrieval_ms": reranked_retrieval_ms,
+                "coverage_score": reranked_coverage_score,
                 "error_check": reranked_error_check,
                 "generated_error_check": reranked_generated_error_check,
                 "error_eval_text_source": reranked_error_eval_source,
@@ -1312,6 +1381,8 @@ def generate_comparison_outputs(
                 "prediction_ja": baseline_result.answer,
                 "retrieval_chunks": [_chunk_to_eval_dict(chunk) for chunk in baseline_result.chunks],
                 "latency_ms": baseline_latency_ms,
+                "retrieval_ms": baseline_retrieval_ms,
+                "coverage_score": baseline_coverage_score,
                 "error_check": baseline_error_check,
                 "generated_error_check": baseline_generated_error_check,
                 "error_eval_text_source": baseline_error_eval_source,
