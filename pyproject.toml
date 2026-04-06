@@ -17,7 +17,7 @@ dependencies = [
   "trl>=0.13.0",
   "bitsandbytes>=0.45.0",
   "sentencepiece>=0.2.0",
-  "protobuf>=5.29.0",
+  "protobuf>=4.24.4,<5.0.0",
   "sacrebleu>=2.5.0",
 ]
 

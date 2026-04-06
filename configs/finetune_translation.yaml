@@ -5,16 +5,18 @@ model:
   base_model_id: Qwen/Qwen2.5-7B-Instruct
   model_local_path: /models/qwen-qwen2.5-7b-instruct
   train_mode: qlora
-  output_adapter_dir: /artifacts/adapters/translation
+  output_adapter_dir: /artifacts/adapters/translation_v2
 
 training:
   epochs: 3
-  lr: 0.0001
-  lora_rank: 32
+  lr: 2.0e-5
+  lora_rank: 64
+  lora_alpha: 64
   batch_size: 8
   max_seq_len: 2048
   early_stopping_patience: 2
+  eval_steps: 200
 
 data:
-  train_path: data/splits/train_v1.jsonl
-  dev_path: data/splits/dev_v1.jsonl
+  train_path: data/splits/train_v2.jsonl
+  dev_path: data/splits/dev_v2.jsonl

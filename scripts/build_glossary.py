@@ -326,26 +326,15 @@ def extract_from_data(
     return terms
 
 
-def main() -> None:
-    parser = argparse.ArgumentParser(description="Build EN-JA glossary")
-    parser.add_argument("--input", default="data/splits/train_v1.jsonl")
-    parser.add_argument("--output", default="kb/glossary.csv")
-    parser.add_argument("--min-freq", type=int, default=3)
-    parser.add_argument("--max-terms", type=int, default=300)
-    args = parser.parse_args()
-
-    rows = []
-    input_path = Path(args.input)
-    if input_path.exists():
-        with input_path.open("r", encoding="utf-8") as f:
-            for line in f:
-                line = line.strip()
-                if line:
-                    rows.append(json.loads(line))
-        print(f"Loaded {len(rows)} rows from {input_path}")
-
-    data_terms = extract_from_data(rows, args.min_freq, args.max_terms) if rows else []
-    print(f"Extracted {len(data_terms)} terms from training data")
+def build_glossary_rows(
+    rows: list[dict],
+    min_freq: int = 3,
+    max_terms: int = 300,
+    curated_only: bool = False,
+    data_terms: list[tuple[str, str, str]] | None = None,
+) -> list[tuple[str, str, str, str]]:
+    if data_terms is None:
+        data_terms = [] if curated_only else extract_from_data(rows, min_freq, max_terms)
 
     seen = set()
     all_terms = []
@@ -361,6 +350,43 @@ def main() -> None:
         if key not in seen:
             seen.add(key)
             all_terms.append((en, ja, note, ""))
+
+    return all_terms
+
+
+def main() -> None:
+    parser = argparse.ArgumentParser(description="Build EN-JA glossary")
+    parser.add_argument("--input", default="data/splits/train_v1.jsonl")
+    parser.add_argument("--output", default="kb/glossary.csv")
+    parser.add_argument("--min-freq", type=int, default=3)
+    parser.add_argument("--max-terms", type=int, default=300)
+    parser.add_argument(
+        "--curated-only",
+        action="store_true",
+        help="Write only curated glossary terms and skip data-derived extractions",
+    )
+    args = parser.parse_args()
+
+    rows = []
+    input_path = Path(args.input)
+    if input_path.exists():
+        with input_path.open("r", encoding="utf-8") as f:
+            for line in f:
+                line = line.strip()
+                if line:
+                    rows.append(json.loads(line))
+        print(f"Loaded {len(rows)} rows from {input_path}")
+
+    data_terms = [] if args.curated_only else extract_from_data(rows, args.min_freq, args.max_terms)
+    print(f"Extracted {len(data_terms)} terms from training data")
+
+    all_terms = build_glossary_rows(
+        rows,
+        min_freq=args.min_freq,
+        max_terms=args.max_terms,
+        curated_only=args.curated_only,
+        data_terms=data_terms,
+    )
 
     out_path = Path(args.output)
     out_path.parent.mkdir(parents=True, exist_ok=True)

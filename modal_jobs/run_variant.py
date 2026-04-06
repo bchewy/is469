@@ -27,7 +27,7 @@ inference_image = (
         "bitsandbytes>=0.45.0",
         "pyyaml>=6.0.2",
         "sentencepiece>=0.2.0",
-        "protobuf>=5.29.0",
+        "protobuf>=4.24.4,<5.0.0",
         "sacrebleu>=2.5.0",
         "unbabel-comet>=2.2.0",
     )
@@ -44,6 +44,7 @@ inference_image = (
 models_volume = modal.Volume.from_name("enja-base-models", create_if_missing=True)
 artifacts_volume = modal.Volume.from_name("enja-model-artifacts", create_if_missing=True)
 data_volume = modal.Volume.from_name("enja-data", create_if_missing=True)
+results_volume = modal.Volume.from_name("enja-results", create_if_missing=True)
 
 
 def _load_yaml(path: str) -> dict:
@@ -107,6 +108,16 @@ def _compute_translation_metrics(predictions: list[dict]) -> dict:
     }
 
 
+def _resolve_results_path(p: str) -> Path:
+    """Write result artifacts into the mounted results volume."""
+    out = Path(p)
+    if out.is_absolute():
+        return out
+    if out.parts and out.parts[0] == RESULTS_DIR.name:
+        out = Path(*out.parts[1:]) if len(out.parts) > 1 else Path()
+    return RESULTS_DIR / out
+
+
 def _load_glossary() -> list[tuple[str, str]]:
     """Load glossary CSV and return (en_term, ja_term) pairs."""
     import csv
@@ -144,12 +155,12 @@ def _qual_entry(pred: dict, score: float) -> dict:
 @app.function(
     image=inference_image,
     gpu="A100",
-    timeout=60 * 60,
+    timeout=60 * 120,  # gen + COMET on ~4k pairs can exceed 60m
     volumes={
         str(MODELS_DIR): models_volume,
         str(ARTIFACTS_DIR): artifacts_volume,
         str(DATA_DIR): data_volume,
-        str(RESULTS_DIR): modal.Volume.from_name("enja-results", create_if_missing=True),
+        str(RESULTS_DIR): results_volume,
     },
     secrets=[modal.Secret.from_name("enja-hf", required_keys=["HF_TOKEN"])],
 )
@@ -172,7 +183,9 @@ def run(variant: str, config: str) -> dict:
         model_path = base_model_id
 
     input_path = _resolve_path(io_cfg.get("input_path", "data/splits/test_v1.jsonl"))
-    output_path = io_cfg.get("output_path", f"results/metrics/{variant}_outputs.jsonl")
+    output_path = _resolve_results_path(
+        io_cfg.get("output_path", f"results/metrics/{variant}_outputs.jsonl")
+    )
 
     adapter_dir = model_cfg.get("adapter_dir", "/artifacts/adapters/translation/final")
 
@@ -197,6 +210,7 @@ def run(variant: str, config: str) -> dict:
     )
     if tokenizer.pad_token is None:
         tokenizer.pad_token = tokenizer.eos_token
+    tokenizer.padding_side = "left"
 
     bnb_config = BitsAndBytesConfig(
         load_in_4bit=True,
@@ -235,18 +249,23 @@ def run(variant: str, config: str) -> dict:
     max_new_tokens = int(gen_cfg.get("max_new_tokens", 512))
     temperature = float(gen_cfg.get("temperature", 0.1))
     top_p = float(gen_cfg.get("top_p", 0.95))
+    infer_batch_size = int(gen_cfg.get("batch_size", 16))
 
-    for row in rows:
-        source_en = row.get("source_en", "")
-        messages = [
-            {"role": "system", "content": SYSTEM_PROMPT},
-            {"role": "user", "content": source_en},
-        ]
+    for batch_start in range(0, len(rows), infer_batch_size):
+        batch_rows = rows[batch_start : batch_start + infer_batch_size]
+        input_texts = []
+        for row in batch_rows:
+            messages = [
+                {"role": "system", "content": SYSTEM_PROMPT},
+                {"role": "user", "content": row.get("source_en", "")},
+            ]
+            input_texts.append(
+                tokenizer.apply_chat_template(messages, tokenize=False, add_generation_prompt=True)
+            )
 
-        input_text = tokenizer.apply_chat_template(
-            messages, tokenize=False, add_generation_prompt=True
-        )
-        inputs = tokenizer(input_text, return_tensors="pt").to(model.device)
+        inputs = tokenizer(
+            input_texts, return_tensors="pt", padding=True, truncation=True,
+        ).to(model.device)
 
         t0 = time.time()
         generation_kwargs = {
@@ -261,21 +280,26 @@ def run(variant: str, config: str) -> dict:
             generation_kwargs["top_p"] = top_p
         with torch.no_grad():
             output_ids = model.generate(**generation_kwargs)
-        latency_ms = round((time.time() - t0) * 1000, 1)
-        total_latency += latency_ms
+        batch_latency_ms = round((time.time() - t0) * 1000, 1)
+        per_sample_ms = round(batch_latency_ms / len(batch_rows), 1)
+        total_latency += batch_latency_ms
 
-        new_tokens = output_ids[0][inputs["input_ids"].shape[1]:]
-        translation = tokenizer.decode(new_tokens, skip_special_tokens=True).strip()
+        for i, row in enumerate(batch_rows):
+            prompt_len = inputs["input_ids"].shape[1]
+            new_tokens = output_ids[i][prompt_len:]
+            translation = tokenizer.decode(new_tokens, skip_special_tokens=True).strip()
 
-        pred = {
-            "id": row.get("id", ""),
-            "source_en": source_en,
-            "prediction_ja": translation,
-            "reference_ja": row.get("target_ja", ""),
-            "variant": variant,
-            "latency_ms": latency_ms,
-        }
-        predictions.append(pred)
+            predictions.append({
+                "id": row.get("id", ""),
+                "source_en": row.get("source_en", ""),
+                "prediction_ja": translation,
+                "reference_ja": row.get("target_ja", ""),
+                "variant": variant,
+                "latency_ms": per_sample_ms,
+            })
+
+        if (batch_start // infer_batch_size) % 10 == 0:
+            print(f"  Batch {batch_start // infer_batch_size + 1}/{(len(rows) + infer_batch_size - 1) // infer_batch_size} done")
 
     out = Path(output_path)
     out.parent.mkdir(parents=True, exist_ok=True)
@@ -346,7 +370,7 @@ def run(variant: str, config: str) -> dict:
                 print(f"Term accuracy: {metrics['term_accuracy']} ({term_correct}/{term_hits})")
 
         # ── Qualitative examples ─────────────────────────────────────
-        qual_dir = Path(f"results/qualitative_examples")
+        qual_dir = _resolve_results_path("qualitative_examples")
         qual_dir.mkdir(parents=True, exist_ok=True)
         qual_examples = {"variant": variant, "best": [], "worst": [], "glossary": []}
 
@@ -367,16 +391,19 @@ def run(variant: str, config: str) -> dict:
         print(f"Qualitative examples: {qual_path}")
 
     # ── Write final metrics ──────────────────────────────────────
-    metrics_path = Path(f"results/metrics/{variant}_metrics.json")
+    metrics_path = _resolve_results_path(f"metrics/{variant}_metrics.json")
     metrics_path.parent.mkdir(parents=True, exist_ok=True)
     with metrics_path.open("w") as f:
         json.dump(metrics, f, indent=2)
     print(f"Metrics: {json.dumps(metrics, indent=2)}")
 
+    out = output_path
+    out.parent.mkdir(parents=True, exist_ok=True)
     with out.open("w", encoding="utf-8") as f:
         for p in predictions:
             p_clean = {k: v for k, v in p.items() if k != "glossary_matches"}
             f.write(json.dumps(p_clean, ensure_ascii=False) + "\n")
+    results_volume.commit()
 
     result = {
         "status": "completed",

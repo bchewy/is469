@@ -6,11 +6,16 @@ project:
 model:
   base_model_id: Qwen/Qwen2.5-7B-Instruct
   model_local_path: /models/qwen-qwen2.5-7b-instruct
-  adapter_dir: /artifacts/adapters/translation/final
+  adapter_dir: /artifacts/adapters/translation_v2/final
 
 variant:
   id: s1
   description: QLoRA fine-tuned translation
+
+generation:
+  num_beams: 5
+  max_new_tokens: 512
+  batch_size: 16
 
 io:
   input_path: data/splits/test_v1.jsonl
