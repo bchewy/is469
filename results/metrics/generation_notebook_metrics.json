@@ -1,0 +1,33 @@
+{
+  "output_path": "c:\\Users\\Jonathan\\Desktop\\Y4S2\\GenAI\\is469\\results\\generation_notebook_eval.jsonl",
+  "num_samples": 20,
+  "avg_latency_ms": 14075.95,
+  "avg_retrieval_ms": 457.88,
+  "avg_coverage_score": 0.85,
+  "bleu": 0.48,
+  "bleu_tokenizer": "char",
+  "chrfpp": 1.7,
+  "comet": 0.4563,
+  "retrieval_eval_samples": 20,
+  "retrieval_hit_at_k": 0.9,
+  "retrieval_recall_at_k": 0.9,
+  "terminology_eval_samples": 0,
+  "terminology_accuracy": null,
+  "error_id_eval_samples": 20,
+  "error_binary_f1": 0.0,
+  "error_category_macro_f1": 0.0667,
+  "error_category_f1": {
+    "Terminology": 0.3333,
+    "Accuracy": 0.0,
+    "Fluency/Grammar": 0.0,
+    "Style/Register": 0.0,
+    "Locale/Formatting": 0.0
+  },
+  "error_gold_positive_count": 20,
+  "error_pred_positive_count": 0,
+  "error_check_fallback_count": 0,
+  "error_eval_text_source_counts": {
+    "unknown": 20 
+  },
+  "error_metrics_warning": "All predicted error labels are negative while gold has positives. Category F1 will be 0; review error_check behavior or eval text alignment."
+}
