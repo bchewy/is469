@@ -8,7 +8,7 @@ __pycache__/
 .DS_Store
 .env
 qwen-qwen2.5-7b-instruct/
+models/
 results/
-data/raw/
-data/processed/
-data/splits/
+*.safetensors
+*.pdf

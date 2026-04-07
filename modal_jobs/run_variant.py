@@ -27,18 +27,24 @@ inference_image = (
         "bitsandbytes>=0.45.0",
         "pyyaml>=6.0.2",
         "sentencepiece>=0.2.0",
-        "protobuf>=5.29.0",
+        "protobuf>=4.24.4,<5.0.0",
         "sacrebleu>=2.5.0",
+        "unbabel-comet>=2.2.0",
     )
     .add_local_dir(
         Path(__file__).parent.parent / "configs",
         remote_path="/root/configs",
+    )
+    .add_local_dir(
+        Path(__file__).parent.parent / "kb",
+        remote_path="/root/kb",
     )
 )
 
 models_volume = modal.Volume.from_name("enja-base-models", create_if_missing=True)
 artifacts_volume = modal.Volume.from_name("enja-model-artifacts", create_if_missing=True)
 data_volume = modal.Volume.from_name("enja-data", create_if_missing=True)
+results_volume = modal.Volume.from_name("enja-results", create_if_missing=True)
 
 
 def _load_yaml(path: str) -> dict:
@@ -102,15 +108,59 @@ def _compute_translation_metrics(predictions: list[dict]) -> dict:
     }
 
 
+def _resolve_results_path(p: str) -> Path:
+    """Write result artifacts into the mounted results volume."""
+    out = Path(p)
+    if out.is_absolute():
+        return out
+    if out.parts and out.parts[0] == RESULTS_DIR.name:
+        out = Path(*out.parts[1:]) if len(out.parts) > 1 else Path()
+    return RESULTS_DIR / out
+
+
+def _load_glossary() -> list[tuple[str, str]]:
+    """Load glossary CSV and return (en_term, ja_term) pairs."""
+    import csv
+    glossary_paths = [
+        Path("/root/kb/glossary.csv"),
+        Path("kb/glossary.csv"),
+    ]
+    for gp in glossary_paths:
+        if gp.exists():
+            pairs = []
+            with gp.open("r", encoding="utf-8") as f:
+                reader = csv.DictReader(f)
+                for row in reader:
+                    en = row.get("source_term_en", "").strip().lower()
+                    ja = row.get("approved_ja", "").strip()
+                    if en and ja:
+                        pairs.append((en, ja))
+            print(f"Loaded {len(pairs)} glossary terms from {gp}")
+            return pairs
+    print("No glossary file found")
+    return []
+
+
+def _qual_entry(pred: dict, score: float) -> dict:
+    return {
+        "id": pred.get("id", ""),
+        "source_en": pred["source_en"],
+        "prediction_ja": pred["prediction_ja"],
+        "reference_ja": pred.get("reference_ja", ""),
+        "comet_score": round(score, 4),
+        "glossary_matches": pred.get("glossary_matches", []),
+    }
+
+
 @app.function(
     image=inference_image,
     gpu="A100",
-    timeout=60 * 60,
+    timeout=60 * 120,  # gen + COMET on ~4k pairs can exceed 60m
     volumes={
         str(MODELS_DIR): models_volume,
         str(ARTIFACTS_DIR): artifacts_volume,
         str(DATA_DIR): data_volume,
-        str(RESULTS_DIR): modal.Volume.from_name("enja-results", create_if_missing=True),
+        str(RESULTS_DIR): results_volume,
     },
     secrets=[modal.Secret.from_name("enja-hf", required_keys=["HF_TOKEN"])],
 )
@@ -133,7 +183,9 @@ def run(variant: str, config: str) -> dict:
         model_path = base_model_id
 
     input_path = _resolve_path(io_cfg.get("input_path", "data/splits/test_v1.jsonl"))
-    output_path = io_cfg.get("output_path", f"results/metrics/{variant}_outputs.jsonl")
+    output_path = _resolve_results_path(
+        io_cfg.get("output_path", f"results/metrics/{variant}_outputs.jsonl")
+    )
 
     adapter_dir = model_cfg.get("adapter_dir", "/artifacts/adapters/translation/final")
 
@@ -158,6 +210,7 @@ def run(variant: str, config: str) -> dict:
     )
     if tokenizer.pad_token is None:
         tokenizer.pad_token = tokenizer.eos_token
+    tokenizer.padding_side = "left"
 
     bnb_config = BitsAndBytesConfig(
         load_in_4bit=True,
@@ -184,6 +237,11 @@ def run(variant: str, config: str) -> dict:
 
     model.eval()
 
+    seed = cfg.get("project", {}).get("seed", 42)
+    torch.manual_seed(seed)
+    if torch.cuda.is_available():
+        torch.cuda.manual_seed_all(seed)
+
     predictions: list[dict] = []
     total_latency = 0.0
     do_sample = bool(gen_cfg.get("do_sample", False))
@@ -191,18 +249,23 @@ def run(variant: str, config: str) -> dict:
     max_new_tokens = int(gen_cfg.get("max_new_tokens", 512))
     temperature = float(gen_cfg.get("temperature", 0.1))
     top_p = float(gen_cfg.get("top_p", 0.95))
+    infer_batch_size = int(gen_cfg.get("batch_size", 16))
 
-    for row in rows:
-        source_en = row.get("source_en", "")
-        messages = [
-            {"role": "system", "content": SYSTEM_PROMPT},
-            {"role": "user", "content": source_en},
-        ]
+    for batch_start in range(0, len(rows), infer_batch_size):
+        batch_rows = rows[batch_start : batch_start + infer_batch_size]
+        input_texts = []
+        for row in batch_rows:
+            messages = [
+                {"role": "system", "content": SYSTEM_PROMPT},
+                {"role": "user", "content": row.get("source_en", "")},
+            ]
+            input_texts.append(
+                tokenizer.apply_chat_template(messages, tokenize=False, add_generation_prompt=True)
+            )
 
-        input_text = tokenizer.apply_chat_template(
-            messages, tokenize=False, add_generation_prompt=True
-        )
-        inputs = tokenizer(input_text, return_tensors="pt").to(model.device)
+        inputs = tokenizer(
+            input_texts, return_tensors="pt", padding=True, truncation=True,
+        ).to(model.device)
 
         t0 = time.time()
         generation_kwargs = {
@@ -217,21 +280,26 @@ def run(variant: str, config: str) -> dict:
             generation_kwargs["top_p"] = top_p
         with torch.no_grad():
             output_ids = model.generate(**generation_kwargs)
-        latency_ms = round((time.time() - t0) * 1000, 1)
-        total_latency += latency_ms
+        batch_latency_ms = round((time.time() - t0) * 1000, 1)
+        per_sample_ms = round(batch_latency_ms / len(batch_rows), 1)
+        total_latency += batch_latency_ms
 
-        new_tokens = output_ids[0][inputs["input_ids"].shape[1]:]
-        translation = tokenizer.decode(new_tokens, skip_special_tokens=True).strip()
+        for i, row in enumerate(batch_rows):
+            prompt_len = inputs["input_ids"].shape[1]
+            new_tokens = output_ids[i][prompt_len:]
+            translation = tokenizer.decode(new_tokens, skip_special_tokens=True).strip()
 
-        pred = {
-            "id": row.get("id", ""),
-            "source_en": source_en,
-            "prediction_ja": translation,
-            "reference_ja": row.get("target_ja", ""),
-            "variant": variant,
-            "latency_ms": latency_ms,
-        }
-        predictions.append(pred)
+            predictions.append({
+                "id": row.get("id", ""),
+                "source_en": row.get("source_en", ""),
+                "prediction_ja": translation,
+                "reference_ja": row.get("target_ja", ""),
+                "variant": variant,
+                "latency_ms": per_sample_ms,
+            })
+
+        if (batch_start // infer_batch_size) % 10 == 0:
+            print(f"  Batch {batch_start // infer_batch_size + 1}/{(len(rows) + infer_batch_size - 1) // infer_batch_size} done")
 
     out = Path(output_path)
     out.parent.mkdir(parents=True, exist_ok=True)
@@ -248,17 +316,94 @@ def run(variant: str, config: str) -> dict:
     }
 
     if has_refs:
+        refs = [[p["reference_ja"] for p in predictions]]
+        hyps = [p["prediction_ja"] for p in predictions]
+        srcs = [p["source_en"] for p in predictions]
+
         metrics.update(_compute_translation_metrics(predictions))
         print(
             f"BLEU ({metrics['bleu_tokenizer']}): {metrics['bleu']}, "
             f"chrF++: {metrics['chrfpp']}"
         )
 
-    metrics_path = Path(f"results/metrics/{variant}_metrics.json")
+        # ── COMET ────────────────────────────────────────────────────
+        try:
+            from comet import download_model, load_from_checkpoint
+            comet_path = download_model("Unbabel/wmt22-comet-da")
+            comet_model = load_from_checkpoint(comet_path)
+            comet_data = [
+                {"src": s, "mt": h, "ref": r}
+                for s, h, r in zip(srcs, hyps, [p["reference_ja"] for p in predictions])
+            ]
+            comet_output = comet_model.predict(comet_data, batch_size=32, gpus=1)
+            comet_scores = comet_output.scores
+            metrics["comet"] = round(comet_output.system_score, 4)
+            print(f"COMET: {metrics['comet']}")
+            for i, p in enumerate(predictions):
+                p["comet_score"] = round(comet_scores[i], 4)
+        except Exception as exc:
+            print(f"COMET evaluation failed: {exc}")
+            comet_scores = None
+
+        # ── Terminology accuracy ─────────────────────────────────────
+        glossary = _load_glossary()
+        if glossary:
+            term_hits = 0
+            term_correct = 0
+            for p in predictions:
+                src_lower = p["source_en"].lower()
+                pred_ja = p["prediction_ja"]
+                matched_terms = []
+                for en_term, ja_term in glossary:
+                    if en_term in src_lower:
+                        term_hits += 1
+                        if ja_term in pred_ja:
+                            term_correct += 1
+                            matched_terms.append((en_term, ja_term, True))
+                        else:
+                            matched_terms.append((en_term, ja_term, False))
+                p["glossary_matches"] = matched_terms
+            if term_hits > 0:
+                metrics["term_accuracy"] = round(term_correct / term_hits, 4)
+                metrics["term_hits"] = term_hits
+                metrics["term_correct"] = term_correct
+                print(f"Term accuracy: {metrics['term_accuracy']} ({term_correct}/{term_hits})")
+
+        # ── Qualitative examples ─────────────────────────────────────
+        qual_dir = _resolve_results_path("qualitative_examples")
+        qual_dir.mkdir(parents=True, exist_ok=True)
+        qual_examples = {"variant": variant, "best": [], "worst": [], "glossary": []}
+
+        if comet_scores:
+            scored = sorted(enumerate(comet_scores), key=lambda x: x[1], reverse=True)
+            for idx, score in scored[:10]:
+                qual_examples["best"].append(_qual_entry(predictions[idx], score))
+            for idx, score in scored[-10:]:
+                qual_examples["worst"].append(_qual_entry(predictions[idx], score))
+
+        gloss_examples = [p for p in predictions if p.get("glossary_matches")]
+        for p in gloss_examples[:10]:
+            qual_examples["glossary"].append(_qual_entry(p, p.get("comet_score", 0)))
+
+        qual_path = qual_dir / f"{variant}.json"
+        with qual_path.open("w", encoding="utf-8") as f:
+            json.dump(qual_examples, f, ensure_ascii=False, indent=2)
+        print(f"Qualitative examples: {qual_path}")
+
+    # ── Write final metrics ──────────────────────────────────────
+    metrics_path = _resolve_results_path(f"metrics/{variant}_metrics.json")
     metrics_path.parent.mkdir(parents=True, exist_ok=True)
     with metrics_path.open("w") as f:
         json.dump(metrics, f, indent=2)
     print(f"Metrics: {json.dumps(metrics, indent=2)}")
+
+    out = output_path
+    out.parent.mkdir(parents=True, exist_ok=True)
+    with out.open("w", encoding="utf-8") as f:
+        for p in predictions:
+            p_clean = {k: v for k, v in p.items() if k != "glossary_matches"}
+            f.write(json.dumps(p_clean, ensure_ascii=False) + "\n")
+    results_volume.commit()
 
     result = {
         "status": "completed",
