@@ -383,3 +383,145 @@ donkey,ロバ,Use the correct animal term,馬
 family,家族,Use the standard family term,
 rain,雨,Use the standard weather term,
 left,左,Use for directional left side,
+password,パスワード,Use the standard loanword for authentication credential,暗証番号
+settings,設定,Use for UI settings menus and configuration screens,セッティング|セットアップ
+account,アカウント,Use the loanword for user accounts,口座
+button,ボタン,Use the loanword for UI buttons,
+error,エラー,Use the loanword for system errors,エラーメッセージ
+login,ログイン,Use for the action of authenticating into a system,サインイン|ログオン
+logout,ログアウト,Use for the action of ending a session,サインアウト|ログオフ
+update,更新,Use the native Japanese word for update actions,アップデート|アップグレード
+save,保存,Use the native Japanese word for save actions,セーブ
+cancel,キャンセル,Use the loanword for cancel actions,中止|中断
+confirm,確認,Use the native Japanese word for confirmation actions,コンファーム
+delete,削除,Use the native Japanese word for delete actions,デリート|消去
+search,検索,Use the native Japanese word for search actions,サーチ|探す
+download,ダウンロード,Use the loanword for download actions,落とす
+upload,アップロード,Use the loanword for upload actions,
+submit,送信,Use for form submission actions,サブミット|提出
+register,登録,Use for account or data registration,レジスター|サインアップ
+notification,通知,Use the native Japanese word for system notifications,ノーティフィケーション
+profile,プロフィール,Use the loanword for user profile pages,プロファイル
+dashboard,ダッシュボード,Use the loanword for overview screens,
+menu,メニュー,Use the loanword for navigation menus,
+link,リンク,Use the loanword for hyperlinks and connections,
+file,ファイル,Use the loanword for computer files,
+folder,フォルダ,Use the loanword for directory folders,フォルダー
+screen,画面,Use the native Japanese word for display screens,スクリーン
+page,ページ,Use the loanword for web or document pages,
+user,ユーザー,Use the loanword for system users,ユーザ|利用者
+administrator,管理者,Use the native Japanese word for admin roles,アドミン|アドミニストレーター
+support,サポート,Use the loanword for customer support,支援
+issue,問題,Use the native Japanese word for problems or issues,イシュー|課題
+message,メッセージ,Use the loanword for messages,
+chat,チャット,Use the loanword for chat functions,
+address,住所,Use the native Japanese word for physical addresses,アドレス
+phone number,電話番号,Use the native Japanese word for phone numbers,
+date,日付,Use the native Japanese word for calendar dates,デート
+time,時間,Use the native Japanese word for time,タイム
+version,バージョン,Use the loanword for software versions,
+language,言語,Use the native Japanese word for language settings,ランゲージ
+country,国,Use the native Japanese word for country selection,カントリー
+city,都市,Use the native Japanese word for city fields,シティ
+name,名前,Use the native Japanese word for name fields,ネーム
+username,ユーザー名,Use this compound for username fields,
+first name,名,Use the native Japanese word for given name,ファーストネーム|名前
+last name,姓,Use the native Japanese word for family name,ラストネーム|苗字
+birthday,誕生日,Use the native Japanese word for date of birth,バースデー
+manager,マネージャー,Use the loanword for business manager role,支配人|管理職
+customer,お客様,Use the polite form for end customers,顧客|クライアント|カスタマー
+price,価格,Use the native Japanese word for prices,値段|プライス
+free,無料,Use the native Japanese word for zero-cost,フリー
+paid,有料,Use the native Japanese word for paid services,
+plan,プラン,Use the loanword for subscription plans,計画
+subscription,サブスクリプション,Use the loanword for subscription services,定期購読
+trial,トライアル,Use the loanword for trial periods,試用
+feature,機能,Use the native Japanese word for product features,フィーチャー
+privacy,プライバシー,Use the loanword for privacy settings and policies,個人情報
+terms,利用規約,Use this compound for terms of service,規約|テームズ
+agreement,同意,Use the native Japanese word for user agreement,アグリーメント|承諾
+policy,ポリシー,Use the loanword for company policies,方針
+cookie,クッキー,Use the loanword for browser cookies,
+access,アクセス,Use the loanword for system access,
+permission denied,アクセス拒否,Use this compound for permission denied errors,
+two-factor authentication,二段階認証,Use for 2FA settings,二要素認証|2FA
+verification,確認,Use the native Japanese word for identity verification,ベリフィケーション
+code,コード,Use the loanword for verification codes and programming,
+token,トークン,Use the loanword for authentication tokens,
+session,セッション,Use the loanword for login sessions,
+timeout,タイムアウト,Use the loanword for session timeouts,
+loading,読み込み中,Use this phrase for loading states,ローディング
+complete,完了,Use the native Japanese word for completion states,コンプリート|終了
+success,成功,Use the native Japanese word for success states,サクセス
+failure,失敗,Use the native Japanese word for failure states,フェイラー
+warning,警告,Use the native Japanese word for warning messages,ワーニング
+information,情報,Use the native Japanese word for informational messages,インフォメーション
+help,ヘルプ,Use the loanword for help sections,助け|サポート
+FAQ,よくある質問,Use this phrase for FAQ sections,FAQ|よくあるご質問
+tutorial,チュートリアル,Use the loanword for onboarding tutorials,入門
+guide,ガイド,Use the loanword for user guides,手引き
+feedback,フィードバック,Use the loanword for user feedback,意見|感想
+review,レビュー,Use the loanword for product reviews,評価|口コミ
+rating,評価,Use the native Japanese word for ratings,レーティング|星
+report,レポート,Use the loanword for reports,報告書
+export,エクスポート,Use the loanword for data export,書き出し
+import,インポート,Use the loanword for data import,読み込み
+backup,バックアップ,Use the loanword for data backups,
+restore,復元,Use the native Japanese word for restore actions,リストア
+sync,同期,Use the native Japanese word for sync actions,シンク|シンクロ
+connect,接続,Use the native Japanese word for connecting services,コネクト|つなぐ
+disconnect,切断,Use the native Japanese word for disconnecting,ディスコネクト
+install,インストール,Use the loanword for software installation,導入
+uninstall,アンインストール,Use the loanword for software removal,削除|アンインストール
+upgrade,アップグレード,Use the loanword for plan or software upgrades,更新
+payment,支払い,Use the native Japanese word for payments,ペイメント
+invoice,請求書,Use the native Japanese word for invoices,インボイス
+receipt,領収書,Use the native Japanese word for receipts,レシート|受領書
+discount,割引,Use the native Japanese word for discounts,ディスカウント
+coupon,クーポン,Use the loanword for discount coupons,
+cart,カート,Use the loanword for shopping carts,ショッピングカート
+checkout,チェックアウト,Use the loanword for checkout process,お会計|精算
+order,注文,Use the native Japanese word for orders,オーダー
+shipping,配送,Use the native Japanese word for shipping,シッピング|発送
+delivery,配達,Use the native Japanese word for delivery,デリバリー
+address book,アドレス帳,Use this compound for contact address books,連絡先
+contact,連絡先,Use the native Japanese word for contacts,コンタクト
+calendar,カレンダー,Use the loanword for calendar features,
+event,イベント,Use the loanword for calendar events,行事|催し
+reminder,リマインダー,Use the loanword for reminder notifications,通知|リマインド
+deadline,締め切り,Use the native Japanese word for deadlines,デッドライン|期限
+appointment,予約,Use the native Japanese word for appointments,アポイントメント|アポ
+meeting,会議,Use the native Japanese word for meetings,ミーティング
+invite,招待,Use the native Japanese word for invitations,インバイト
+share,共有,Use the native Japanese word for sharing content,シェア
+public,公開,Use the native Japanese word for public visibility,パブリック
+private,非公開,Use this compound for private visibility,プライベート
+draft,下書き,Use the native Japanese word for draft content,ドラフト
+publish,公開,Use the native Japanese word for publishing content,パブリッシュ
+archive,アーカイブ,Use the loanword for archiving content,保管
+tag,タグ,Use the loanword for content tags,
+category,カテゴリー,Use the loanword for content categories,カテゴリ|種別
+sort,並び替え,Use this phrase for sort actions,ソート
+filter,フィルター,Use the loanword for filter actions,絞り込み
+view,表示,Use the native Japanese word for view modes,ビュー
+edit,編集,Use the native Japanese word for edit actions,エディット|修正
+copy,コピー,Use the loanword for copy actions,複製
+paste,貼り付け,Use the native Japanese word for paste actions,ペースト
+undo,元に戻す,Use this phrase for undo actions,アンドゥ
+redo,やり直し,Use this phrase for redo actions,リドゥ
+zoom,ズーム,Use the loanword for zoom controls,拡大縮小
+print,印刷,Use the native Japanese word for print actions,プリント
+close,閉じる,Use the native Japanese word for close actions,クローズ
+open,開く,Use the native Japanese word for open actions,オープン
+new,新規,Use the native Japanese word for new item creation,ニュー|新しい
+add,追加,Use the native Japanese word for add actions,アッド|加える
+remove,削除,Use the native Japanese word for remove actions,リムーブ|取り除く
+select,選択,Use the native Japanese word for select actions,セレクト|選ぶ
+check,チェック,Use the loanword for checkbox and verification,確認
+toggle,切り替え,Use this phrase for toggle controls,トグル
+enable,有効にする,Use this phrase for enabling features,イネーブル
+disable,無効にする,Use this phrase for disabling features,ディセーブル
+default,デフォルト,Use the loanword for default settings,既定|標準
+custom,カスタム,Use the loanword for custom settings,カスタマイズ
+advanced,詳細,Use the native Japanese word for advanced settings,アドバンスド|高度
+basic,基本,Use the native Japanese word for basic settings,ベーシック|シンプル
