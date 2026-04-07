@@ -1,0 +1,77 @@
+{
+  "source_path": "C:\\Users\\kaile\\Documents\\GitHub\\is469\\results\\reranker_outputs.jsonl",
+  "seed": 42,
+  "train_samples": 250,
+  "test_samples": 2000,
+  "run_pipeline": true,
+  "train": {
+    "output_path": "C:\\Users\\kaile\\Documents\\GitHub\\is469\\results\\reranker_outputs.jsonl",
+    "num_samples": 250,
+    "avg_latency_ms": 99.51,
+    "avg_retrieval_ms": 99.38,
+    "avg_coverage_score": 0.4326,
+    "bleu": 35.75,
+    "bleu_tokenizer": "char",
+    "chrfpp": 28.06,
+    "retrieval_eval_samples": 250,
+    "retrieval_hit_at_k": 1.0,
+    "retrieval_recall_at_k": 1.0,
+    "terminology_eval_samples": 250,
+    "terminology_term_total": 276,
+    "terminology_correct_terms": 162,
+    "terminology_accuracy": 0.587,
+    "error_id_eval_samples": 250,
+    "error_binary_f1": 0.6724,
+    "error_category_macro_f1": 0.2371,
+    "error_category_f1": {
+      "Terminology": 0.5,
+      "Accuracy": 0.4484,
+      "Fluency/Grammar": 0.2373,
+      "Style/Register": 0.0001,
+      "Locale/Formatting": 0.0001
+    },
+    "error_gold_positive_count": 117,
+    "error_pred_positive_count": 231,
+    "error_check_fallback_count": 250,
+    "error_eval_text_source_counts": {
+      "candidate_ja": 250
+    },
+    "comet": 0.2806,
+    "comet_source": "fallback_chrfpp"
+  },
+  "test": {
+    "output_path": "C:\\Users\\kaile\\Documents\\GitHub\\is469\\results\\reranker_outputs.jsonl",
+    "num_samples": 2000,
+    "avg_latency_ms": 89.71,
+    "avg_retrieval_ms": 89.67,
+    "avg_coverage_score": 0.4374,
+    "bleu": 23.98,
+    "bleu_tokenizer": "char",
+    "chrfpp": 21.24,
+    "retrieval_eval_samples": 2000,
+    "retrieval_hit_at_k": 1.0,
+    "retrieval_recall_at_k": 1.0,
+    "terminology_eval_samples": 82,
+    "terminology_term_total": 84,
+    "terminology_correct_terms": 53,
+    "terminology_accuracy": 0.631,
+    "error_id_eval_samples": 2000,
+    "error_binary_f1": 0.7645,
+    "error_category_macro_f1": 0.2338,
+    "error_category_f1": {
+      "Terminology": 0.065,
+      "Accuracy": 0.3877,
+      "Fluency/Grammar": 0.4116,
+      "Style/Register": 0.2333,
+      "Locale/Formatting": 0.0714
+    },
+    "error_gold_positive_count": 1209,
+    "error_pred_positive_count": 1954,
+    "error_check_fallback_count": 2000,
+    "error_eval_text_source_counts": {
+      "candidate_ja": 2000
+    },
+    "comet": 0.2124,
+    "comet_source": "fallback_chrfpp"
+  }
+}

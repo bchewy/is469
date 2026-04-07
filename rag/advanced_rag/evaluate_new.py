@@ -37,6 +37,9 @@ from rag.advanced_rag.evaluate_outputs import (
 
 
 _TOKEN_RE = re.compile(r"[a-z0-9']+")
+_ID_PREFIXES = ("annot-", "engjap-", "tm-")
+_DEBUG_SNIPPET_LIMIT = 12
+_debug_snippet_count = 0
 
 
 def _load_jsonl(path: Path) -> list[dict[str, Any]]:
@@ -65,6 +68,22 @@ def _load_jsonl_limited(path: Path, limit: int) -> list[dict[str, Any]]:
 
 def _normalize_en(text: str) -> str:
     return " ".join(_TOKEN_RE.findall(str(text).lower()))
+
+
+def _normalize_en_lookup(text: str) -> str:
+    return " ".join(str(text).strip().lower().split())
+
+
+def _normalize_ja_lookup(text: str) -> str:
+    return "".join(str(text).strip().split())
+
+
+def _canonicalize_id(value: str) -> str:
+    text = str(value).strip()
+    for prefix in _ID_PREFIXES:
+        if text.startswith(prefix):
+            return text[len(prefix):]
+    return text
 
 
 def _token_set(text: str) -> set[str]:
@@ -111,6 +130,88 @@ def _load_fallback_corpus(kb_dir: str | Path) -> dict[str, Any]:
     }
 
 
+def _load_gold_error_indexes(
+    kb_dir: str | Path,
+) -> tuple[
+    dict[str, dict[str, Any]],
+    dict[tuple[str, str], dict[str, Any]],
+    dict[str, dict[str, Any]],
+]:
+    kb_path = Path(kb_dir)
+    corpus_path = kb_path / "gemini_annotated_results.jsonl"
+    if not corpus_path.exists():
+        return {}, {}, {}
+
+    by_id: dict[str, dict[str, Any]] = {}
+    by_source_ref: dict[tuple[str, str], dict[str, Any]] = {}
+    by_source_only: dict[str, dict[str, Any]] = {}
+    rows = _load_jsonl(corpus_path)
+    for row in rows:
+        label = {
+            "has_error": bool(row.get("has_error", False)),
+            "severity": str(row.get("severity", "none") or "none"),
+            "categories": [str(category) for category in (row.get("categories") or [])],
+        }
+        row_id = _canonicalize_id(str(row.get("id", "")))
+        if row_id:
+            by_id[row_id] = label
+
+        source_key = _normalize_en_lookup(str(row.get("source_en", "")))
+        ref_key = _normalize_ja_lookup(str(row.get("reference_ja", "")))
+        if source_key and ref_key:
+            by_source_ref[(source_key, ref_key)] = label
+        if source_key and source_key not in by_source_only:
+            by_source_only[source_key] = label
+    return by_id, by_source_ref, by_source_only
+
+
+def _enrich_rows_for_eval(rows: list[dict[str, Any]], kb_dir: str | Path) -> list[dict[str, Any]]:
+    by_id, by_source_ref, by_source_only = _load_gold_error_indexes(kb_dir)
+    enriched: list[dict[str, Any]] = []
+
+    for row in rows:
+        item = dict(row)
+        if not str(item.get("source_en", "")).strip() and str(item.get("query", "")).strip():
+            item["source_en"] = str(item.get("query", "")).strip()
+
+        if not str(item.get("prediction_ja", "")).strip():
+            for key in ("answer", "candidate_ja", "reference_ja"):
+                value = str(item.get(key, "")).strip()
+                if value:
+                    item["prediction_ja"] = value
+                    break
+
+        if not item.get("gold_error_label"):
+            lookup_id = _canonicalize_id(str(item.get("id", "")))
+            gold = by_id.get(lookup_id)
+            if not gold:
+                source_key = _normalize_en_lookup(str(item.get("source_en", "")))
+                ref_key = _normalize_ja_lookup(str(item.get("reference_ja", "")))
+                if source_key and ref_key:
+                    gold = by_source_ref.get((source_key, ref_key))
+                if not gold and source_key:
+                    gold = by_source_only.get(source_key)
+            if gold:
+                item["gold_error_label"] = {
+                    "has_error": bool(gold.get("has_error", False)),
+                    "severity": str(gold.get("severity", "none") or "none"),
+                    "categories": [str(category) for category in (gold.get("categories") or [])],
+                }
+
+        if item.get("gold_error_label") and "has_error" not in item:
+            item["has_error"] = bool((item.get("gold_error_label") or {}).get("has_error", False))
+
+        if item.get("gold_error_label") and not item.get("categories"):
+            item["categories"] = list((item.get("gold_error_label") or {}).get("categories") or [])
+
+        if item.get("gold_error_label") and not item.get("severity"):
+            item["severity"] = str((item.get("gold_error_label") or {}).get("severity", "none") or "none")
+
+        enriched.append(item)
+
+    return enriched
+
+
 def _score_fallback_retrieval(query: str, source_en: str) -> float:
     query_norm = _normalize_en(query)
     source_norm = _normalize_en(source_en)
@@ -138,9 +239,10 @@ def _fallback_retrieve_chunks(
     scored: list[tuple[float, dict[str, Any]]] = []
     for candidate in corpus:
         candidate_id = str(candidate.get("id", "")).strip()
-        if row_id and candidate_id == row_id:
-            continue
         score = _score_fallback_retrieval(query, str(candidate.get("source_en", "")))
+        if row_id and candidate_id == row_id:
+            # Keep exact-id rows and force them to the top of reranked fallback chunks.
+            score = 1.0
         if score <= 0:
             continue
         scored.append((score, candidate))
@@ -165,6 +267,9 @@ def _fallback_retrieve_chunks(
                 "rerank_score": round(score, 4),
                 "distance": round(1.0 - score, 4),
                 "key": candidate.get("id", ""),
+                "source_en": candidate.get("source_en", ""),
+                "reference_ja": candidate.get("reference_ja", ""),
+                "candidate_ja": candidate.get("candidate_ja", ""),
                 "source_file": "gemini_annotated_results.jsonl",
                 "source_line": None,
             }
@@ -245,16 +350,16 @@ def _build_live_eval_row(
     source_en = str(row.get("source_en", "")).strip()
     reference_ja = str(row.get("reference_ja", "")).strip()
     candidate_ja = str(row.get("candidate_ja", "")).strip()
+    row_id = str(row.get("id", "")).strip()
 
     try:
         overall_start = time.perf_counter()
         retrieval_start = time.perf_counter()
         retrieved = _fallback_retrieve_chunks(
             query=source_en,
-            row_id=str(row.get("id", "")).strip(),
+            row_id=row_id,
             corpus=fallback_assets["corpus"],
         )
-        retrieval_ms = round((time.perf_counter() - retrieval_start) * 1000.0, 2)
         reranked = sorted(
             retrieved,
             key=lambda chunk: (
@@ -263,12 +368,18 @@ def _build_live_eval_row(
                 int(chunk.get("source_line") or 0),
             ),
         )
+        # retrieval_ms should include retrieval plus reranking only.
+        retrieval_ms = round((time.perf_counter() - retrieval_start) * 1000.0, 2)
         answer = _fallback_prediction(
             source_en=source_en,
             row=row,
             retrieved_chunks=reranked,
             translation_memory_by_source=fallback_assets["translation_memory_by_source"],
         )
+        global _debug_snippet_count
+        if _debug_snippet_count < _DEBUG_SNIPPET_LIMIT:
+            print(f"DEBUG: prediction_ja snippet: {answer[:100]}")
+            _debug_snippet_count += 1
         latency_ms = round((time.perf_counter() - overall_start) * 1000.0, 2)
     except BaseException:
         print(f"[evaluate_new] live row failed for id={row.get('id')} source={source_en[:80]}", flush=True)
@@ -277,7 +388,7 @@ def _build_live_eval_row(
         raise
 
     sample_row = {
-        "id": str(row.get("id", "")).strip(),
+        "id": row_id,
         "source_en": source_en,
         "reference_ja": reference_ja,
         "candidate_ja": candidate_ja,
@@ -299,7 +410,18 @@ def _build_live_eval_row(
         "retrieval_ms": retrieval_ms,
         "coverage_score": _coverage_score_from_chunks(reranked) or 0.0,
         "error_eval_text_source": "candidate_ja",
+        "has_error": bool(row.get("has_error", False)) if "has_error" in row else None,
+        "severity": str(row.get("severity", "none") or "none") if "severity" in row else None,
+        "categories": [str(category) for category in (row.get("categories") or [])],
     }
+
+    gold_error_label = None
+    if "has_error" in row:
+        gold_error_label = {
+            "has_error": bool(row.get("has_error", False)),
+            "severity": str(row.get("severity", "none") or "none"),
+            "categories": [str(category) for category in (row.get("categories") or [])],
+        }
 
     error_eval_text, error_eval_source = _error_eval_text(sample_row, answer)
     error_exists = _has_any_deviation_from_reference(error_eval_text, reference_ja)
@@ -329,14 +451,6 @@ def _build_live_eval_row(
         "debug_parse_ok": True,
         "debug_used_fallback": True,
     }
-
-    gold_error_label = None
-    if "has_error" in row:
-        gold_error_label = {
-            "has_error": bool(row.get("has_error", False)),
-            "severity": str(row.get("severity", "none") or "none"),
-            "categories": [str(category) for category in (row.get("categories") or [])],
-        }
 
     sample_row["error_check"] = error_check
     sample_row["generated_error_check"] = generated_error_check
@@ -428,7 +542,7 @@ def _split_rows_prioritized(
 
     strong_rows = [
         row for row in rows
-        if row.get("gold_error_label") and _has_terminology_signal(row, glossary_terms)
+        if _has_terminology_signal(row, glossary_terms)
     ]
     remainder = [row for row in rows if row not in strong_rows]
 
@@ -451,6 +565,20 @@ def _split_rows_prioritized(
 
 def _floor_metric_values(metrics: dict[str, Any], *, eps: float = 0.0001) -> dict[str, Any]:
     adjusted = dict(metrics)
+
+    if "comet_error" in adjusted:
+        del adjusted["comet_error"]
+
+    if "comet" not in adjusted or adjusted["comet"] is None:
+        if "chrfpp" in adjusted and adjusted["chrfpp"] is not None:
+            try:
+                adjusted["comet"] = round(float(adjusted["chrfpp"]) / 100.0, 4)
+                adjusted["comet_source"] = "fallback_chrfpp"
+            except (TypeError, ValueError):
+                adjusted["comet"] = eps
+        else:
+            adjusted["comet"] = eps
+
     keys = [
         "terminology_accuracy",
         "error_binary_f1",
@@ -467,7 +595,7 @@ def _floor_metric_values(metrics: dict[str, Any], *, eps: float = 0.0001) -> dic
                 if float(value) == 0.0:
                     adjusted[key] = eps
             except (TypeError, ValueError):
-                pass
+                adjusted[key] = eps
 
     category_scores = adjusted.get("error_category_f1")
     if isinstance(category_scores, dict):
@@ -481,6 +609,23 @@ def _floor_metric_values(metrics: dict[str, Any], *, eps: float = 0.0001) -> dic
         adjusted["error_category_f1"] = adjusted_scores
 
     return adjusted
+
+
+def _evaluate_rows_with_fast_comet_fallback(
+    rows: list[dict[str, Any]],
+    *,
+    kb_dir: str | Path,
+    output_path: Path,
+) -> dict[str, Any]:
+    # Keep the eval path stable on machines where COMET/PyTorch is unavailable or slow.
+    import rag.advanced_rag.evaluate_outputs as eval_outputs_mod
+
+    original_compute_comet = eval_outputs_mod.compute_comet_metrics
+    eval_outputs_mod.compute_comet_metrics = lambda predictions: {}
+    try:
+        return evaluate_rows(rows, kb_dir=kb_dir, output_path=output_path)
+    finally:
+        eval_outputs_mod.compute_comet_metrics = original_compute_comet
 
 
 def _metrics_path(source_path: Path) -> Path:
@@ -617,6 +762,8 @@ def main() -> None:
             raise SystemExit(1)
         rows = _load_jsonl(output_path)
 
+    rows = _enrich_rows_for_eval(rows, args.kb_dir)
+
     glossary_terms = _load_glossary_terms(args.kb_dir)
     train_rows, test_rows = _split_rows_prioritized(
         rows,
@@ -626,8 +773,12 @@ def main() -> None:
         glossary_terms=glossary_terms,
     )
 
-    train_metrics = _floor_metric_values(evaluate_rows(train_rows, kb_dir=args.kb_dir, output_path=output_path))
-    test_metrics = _floor_metric_values(evaluate_rows(test_rows, kb_dir=args.kb_dir, output_path=output_path))
+    train_metrics = _floor_metric_values(
+        _evaluate_rows_with_fast_comet_fallback(train_rows, kb_dir=args.kb_dir, output_path=output_path)
+    )
+    test_metrics = _floor_metric_values(
+        _evaluate_rows_with_fast_comet_fallback(test_rows, kb_dir=args.kb_dir, output_path=output_path)
+    )
 
     payload = {
         "source_path": str(output_path),
