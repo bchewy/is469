@@ -74,6 +74,44 @@ def _load_jsonl(path: str) -> list[dict]:
             rows.append(json.loads(line))
     return rows
 
+def _sync_s3_to_local(s3_uri: str, local_dir: str) -> str:
+    """Download model files from S3 to a local directory using boto3."""
+    import boto3
+    from urllib.parse import urlparse
+
+    parsed = urlparse(s3_uri)
+    bucket = parsed.netloc
+    prefix = parsed.path.lstrip("/")
+
+    local_path = Path(local_dir)
+    local_path.mkdir(parents=True, exist_ok=True)
+
+    s3 = boto3.client(
+        "s3",
+        aws_access_key_id=os.environ.get("MODELS_AWS_ACCESS_KEY_ID"),
+        aws_secret_access_key=os.environ.get("MODELS_AWS_SECRET_ACCESS_KEY"),
+        region_name=os.environ.get("MODELS_AWS_DEFAULT_REGION", "ap-southeast-1"),
+    )
+
+    paginator = s3.get_paginator("list_objects_v2")
+    total_files = 0
+    for page in paginator.paginate(Bucket=bucket, Prefix=prefix):
+        for obj in page.get("Contents", []):
+            key = obj["Key"]
+            # Relative path within the prefix
+            rel = key[len(prefix):].lstrip("/")
+            if not rel:
+                continue
+            dest = local_path / rel
+            dest.parent.mkdir(parents=True, exist_ok=True)
+            if not dest.exists() or dest.stat().st_size != obj["Size"]:
+                print(f"  Downloading {key} -> {dest}")
+                s3.download_file(bucket, key, str(dest))
+                total_files += 1
+
+    print(f"  S3 sync complete: {total_files} files downloaded to {local_dir}")
+    return str(local_path)
+
 
 def _resolve_path(p: str) -> str:
     """Try DATA_DIR-prefixed path first, then raw."""
@@ -126,6 +164,7 @@ def _compute_translation_metrics(predictions: list[dict]) -> dict:
         # Account B: S3 Vectors API only (not the object S3 bucket for model weights).
         # Omit this secret only when retrieval.enabled is false in config.
         modal.Secret.from_name("enja-s3-vectors"),
+        modal.Secret.from_name("enja-s3-models"),
     ],
 )
 def run(config: str) -> dict:
@@ -138,13 +177,14 @@ def run(config: str) -> dict:
 
     from src.agents.agentic_rag import detect_translation_error, translate_with_agentic_loop
     from src.eval.s3_eval import (
-        build_eval_assets,
-        build_retrieval_eval,
-        build_terminology_eval,
-        compute_comet_metrics,
-        compute_error_id_metrics,
-        compute_retrieval_metrics,
-        compute_terminology_metrics,
+    build_eval_assets,
+    build_retrieval_eval,
+    build_terminology_eval,
+    canonicalize_id,
+    compute_comet_metrics,
+    compute_error_id_metrics,
+    compute_retrieval_metrics,
+    compute_terminology_metrics,
     )
     from src.retrieval.s3_vectors_rag import S3VectorsRAGRetriever
 
@@ -156,10 +196,22 @@ def run(config: str) -> dict:
 
     base_model_id = model_cfg.get("base_model_id", "Qwen/Qwen2.5-7B-Instruct")
     model_local_path = model_cfg.get("model_local_path")
-    if model_local_path and Path(model_local_path).exists():
+    model_s3_uri = model_cfg.get("model_s3_uri")  # e.g. s3://is469-genai-brianchew/models/...
+    adapter_s3_uri = model_cfg.get("adapter_s3_uri")  # e.g. s3://is469-genai-brianchew/adapters/...
+
+    # Priority: S3 URI > local volume path > HuggingFace model ID
+    if model_s3_uri:
+        print(f"Downloading base model from S3: {model_s3_uri}")
+        model_path = _sync_s3_to_local(model_s3_uri, "/tmp/models/base")
+    elif model_local_path and Path(model_local_path).exists():
         model_path = model_local_path
     else:
         model_path = base_model_id
+
+    adapter_dir = model_cfg.get("adapter_dir")  # expected LoRA adapter directory
+    if adapter_s3_uri:
+        print(f"Downloading LoRA adapter from S3: {adapter_s3_uri}")
+        adapter_dir = _sync_s3_to_local(adapter_s3_uri, "/tmp/adapters/qlora-v1")
 
     adapter_dir = model_cfg.get("adapter_dir")  # expected LoRA adapter directory
 
@@ -330,7 +382,7 @@ def run(config: str) -> dict:
             prediction_ja=candidate_ja,
             assets=eval_assets,
         )
-        gold_error_label = eval_assets.gold_error_by_id.get(row_id)
+        gold_error_label = eval_assets.gold_error_by_id.get(canonicalize_id(row_id))
 
         predictions.append(
             {
@@ -399,7 +451,7 @@ def run(config: str) -> dict:
     metrics.update(compute_terminology_metrics(predictions))
     metrics.update(compute_error_id_metrics(predictions))
 
-    metrics_path = Path(f"results/metrics/s3_metrics.json")
+    metrics_path = Path("/results/metrics/s3_metrics.json")
     metrics_path.parent.mkdir(parents=True, exist_ok=True)
     with metrics_path.open("w", encoding="utf-8") as f:
         json.dump(metrics, f, indent=2, ensure_ascii=False)

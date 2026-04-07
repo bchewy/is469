@@ -24,7 +24,7 @@ training_image = (
         "peft>=0.14.0",
         "datasets>=3.2.0",
         "accelerate>=1.2.0",
-        "trl>=0.13.0",
+        "trl>=0.15.0",
         "bitsandbytes>=0.45.0",
         "pyyaml>=6.0.2",
         "sentencepiece>=0.2.0",
@@ -82,8 +82,8 @@ def _load_jsonl_dataset(path: str) -> list[dict]:
 
 @app.function(
     image=training_image,
-    gpu="A100",
-    timeout=60 * 120,
+    gpu="H100",
+    timeout=60 * 180,
     volumes={
         str(MODELS_DIR): models_volume,
         str(ARTIFACTS_DIR): artifacts_volume,
@@ -119,11 +119,13 @@ def train(config: str) -> dict:
         model_path = base_model_id
         print(f"Using HF model: {model_path}")
 
-    epochs = train_cfg.get("epochs", 2)
-    lr = train_cfg.get("lr", 2e-4)
-    lora_rank = train_cfg.get("lora_rank", 16)
+    epochs = train_cfg.get("epochs", 3)
+    lr = float(train_cfg.get("lr", 3e-5))
+    lora_rank = train_cfg.get("lora_rank", 32)
+    lora_alpha = train_cfg.get("lora_alpha", lora_rank)
     batch_size = train_cfg.get("batch_size", 8)
     max_seq_len = train_cfg.get("max_seq_len", 2048)
+    early_stopping_patience = train_cfg.get("early_stopping_patience", 0)
 
     train_path = data_cfg.get("train_path", "data/splits/train_v1.jsonl")
     dev_path = data_cfg.get("dev_path", "data/splits/dev_v1.jsonl")
@@ -173,7 +175,7 @@ def train(config: str) -> dict:
     lora_config = LoraConfig(
         task_type=TaskType.CAUSAL_LM,
         r=lora_rank,
-        lora_alpha=lora_rank * 2,
+        lora_alpha=lora_alpha,
         lora_dropout=0.05,
         target_modules=["q_proj", "k_proj", "v_proj", "o_proj", "gate_proj", "up_proj", "down_proj"],
         bias="none",
@@ -182,9 +184,7 @@ def train(config: str) -> dict:
     model.print_trainable_parameters()
 
     def format_row(row: dict) -> dict:
-        messages = _format_chat(row["source_en"], row.get("target_ja"))
-        text = tokenizer.apply_chat_template(messages, tokenize=False, add_generation_prompt=False)
-        return {"text": text}
+        return {"messages": _format_chat(row["source_en"], row.get("target_ja"))}
 
     train_ds = Dataset.from_list(train_rows).map(format_row)
     dev_ds = Dataset.from_list(dev_rows).map(format_row)
@@ -192,29 +192,43 @@ def train(config: str) -> dict:
     output_dir = str(Path(output_adapter_dir) / "checkpoints")
     Path(output_dir).mkdir(parents=True, exist_ok=True)
 
+    use_early_stopping = early_stopping_patience > 0
+    eval_steps = train_cfg.get("eval_steps", 500)
+
     sft_config = SFTConfig(
         output_dir=output_dir,
         num_train_epochs=epochs,
         per_device_train_batch_size=batch_size,
         per_device_eval_batch_size=batch_size,
         gradient_accumulation_steps=max(1, 32 // batch_size),
+        gradient_checkpointing=True,
+        gradient_checkpointing_kwargs={"use_reentrant": False},
         learning_rate=lr,
         weight_decay=0.01,
         warmup_ratio=0.1,
         lr_scheduler_type="cosine",
         logging_steps=10,
-        eval_strategy="epoch",
-        save_strategy="epoch",
+        eval_strategy="steps",
+        eval_steps=eval_steps,
+        save_strategy="steps",
+        save_steps=eval_steps,
         save_total_limit=2,
+        load_best_model_at_end=use_early_stopping,
+        metric_for_best_model="eval_loss" if use_early_stopping else None,
+        greater_is_better=False if use_early_stopping else None,
         bf16=True,
         seed=seed,
         report_to="none",
         max_grad_norm=0.3,
-        optim="paged_adamw_8bit",
+        optim="adamw_torch_fused",
         max_length=max_seq_len,
-        dataset_text_field="text",
         packing=False,
     )
+
+    callbacks = []
+    if use_early_stopping:
+        from transformers import EarlyStoppingCallback
+        callbacks.append(EarlyStoppingCallback(early_stopping_patience=early_stopping_patience))
 
     trainer = SFTTrainer(
         model=model,
@@ -222,6 +236,7 @@ def train(config: str) -> dict:
         train_dataset=train_ds,
         eval_dataset=dev_ds,
         args=sft_config,
+        callbacks=callbacks if callbacks else None,
     )
 
     t0 = time.time()

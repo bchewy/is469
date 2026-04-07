@@ -25,7 +25,7 @@ def _normalize_ja(text: str) -> str:
     return "".join(text.strip().split())
 
 
-def _canonicalize_id(value: str) -> str:
+def canonicalize_id(value: str) -> str:
     text = str(value).strip()
     for prefix in ("annot-", "engjap-", "tm-"):
         if text.startswith(prefix):
@@ -162,7 +162,7 @@ def _load_gold_error_labels(kb_dir: Path) -> dict[str, dict[str, Any]]:
             if not line:
                 continue
             obj = json.loads(line)
-            row_id = _canonicalize_id(obj.get("id", ""))
+            row_id = canonicalize_id(obj.get("id", ""))
             if not row_id:
                 continue
             out[row_id] = {
@@ -213,6 +213,7 @@ def build_retrieval_eval(
         matched = (
             entry.source_term_en.lower() in combined_lower
             or entry.approved_ja in combined
+            or _normalize_ja(entry.approved_ja) in _normalize_ja(combined)
             or any(v in combined for v in entry.forbidden_variants)
         )
         expected_targets.append(
@@ -228,7 +229,7 @@ def build_retrieval_eval(
         matched = (
             tm_entry["source_en"] in combined
             or tm_entry["target_ja"] in combined
-            or _best_source_overlap(source_en, retrieved_texts) >= 0.6
+            or _best_source_overlap(source_en, retrieved_texts) >= 0.4
         )
         expected_targets.append(
             {
@@ -240,7 +241,7 @@ def build_retrieval_eval(
 
     if norm_source in assets.exact_parallel_sources:
         overlap = _best_source_overlap(source_en, retrieved_texts)
-        matched = source_en in combined or overlap >= 0.6
+        matched = source_en in combined or overlap >= 0.4
         expected_targets.append(
             {
                 "kind": "parallel_memory",

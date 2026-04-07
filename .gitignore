@@ -11,3 +11,7 @@ qwen-qwen2.5-7b-instruct/
 data/raw/
 data/processed/
 data/splits/
+models/
+results/
+*.safetensors
+*.pdf

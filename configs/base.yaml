@@ -11,6 +11,11 @@ variant:
   id: s0
   description: Prompt-only baseline
 
+generation:
+  num_beams: 5
+  max_new_tokens: 512
+  batch_size: 16
+
 io:
   input_path: data/splits/test_v1.jsonl
   output_path: results/metrics/s0_outputs.jsonl

@@ -13,8 +13,8 @@ from src.utils.aws_profiles import s3vectors_client
 _region = os.environ.get("VECTORS_AWS_DEFAULT_REGION", "ap-southeast-1")
 client = s3vectors_client(region_name=_region)
 
-BUCKET_NAME = 'is469-genai-grp-project'
-INDEX_NAME = 'rag-vector-2'
+BUCKET_NAME = os.environ.get('VECTORS_BUCKET_NAME', 'is469-genai-grp-project')
+INDEX_NAME = os.environ.get('VECTORS_INDEX_NAME', 'rag-vector-2')
 BATCH_SIZE = 10
 MAX_METADATA_BYTES = 1900
 
@@ -26,6 +26,8 @@ list_files = [
     "eng_jap_chunks_embedded_full_vectors.jsonl",
     "gemini_annotated_chunks_embedded_full_vectors.jsonl",
     "grammar_chunks_embedded_full_vectors.jsonl",
+    "glossary_chunks_embedded_full_vectors.jsonl",
+    "translation_memory_chunks_embedded_full_vectors.jsonl",
 ]
 
 

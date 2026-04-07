@@ -43,6 +43,26 @@ def normalize_text(text: str) -> str:
 
 _KANA_RE = re.compile(r"[\u3040-\u309F\u30A0-\u30FF]")
 _CJK_RE = re.compile(r"[\u4E00-\u9FFF]")
+_BOILERPLATE_MARKERS = (
+    "sponsored link",
+    "log in",
+    "sign-up",
+    "pricing",
+    "video newsletters",
+    "video chat",
+    "live meetings",
+)
+_LANGUAGE_MENU_MARKERS = (
+    "bulgarian",
+    "german",
+    "english",
+    "spanish",
+    "french",
+    "hungarian",
+    "bahasa",
+    "japanese",
+    "russian",
+)
 
 
 def looks_japanese(text: str) -> bool:
@@ -57,6 +77,21 @@ def looks_english(text: str) -> bool:
         return False
     ascii_count = sum(1 for c in alnum if ord(c) < 128)
     return ascii_count / len(alnum) > 0.5
+
+
+def looks_like_crawl_boilerplate(text: str) -> bool:
+    low = text.lower()
+    marker_hits = sum(marker in low for marker in _BOILERPLATE_MARKERS)
+    language_hits = sum(marker in low for marker in _LANGUAGE_MENU_MARKERS)
+    if "sponsored link" in low:
+        return True
+    if marker_hits >= 3:
+        return True
+    if language_hits >= 4 and ("/" in text or "|" in text):
+        return True
+    if text.count("|") >= 3 and len(text) > 80:
+        return True
+    return False
 
 
 # ── Dedup ────────────────────────────────────────────────────────────────────
@@ -82,6 +117,8 @@ def filter_and_normalize(
     min_ja_chars: int = 2,
     max_len_ratio: float = 9.0,
     min_quality: float = 0.5,
+    max_en_chars: int = 400,
+    max_ja_chars: int = 400,
 ) -> tuple[list[TranslationRow], dict[str, int]]:
 
     stats = {
@@ -89,8 +126,10 @@ def filter_and_normalize(
         "empty_text": 0,
         "lang_id_fail": 0,
         "too_short": 0,
+        "too_long": 0,
         "len_ratio_fail": 0,
         "quality_floor": 0,
+        "boilerplate_noise": 0,
         "exact_dup": 0,
         "near_dup": 0,
         "output": 0,
@@ -116,8 +155,20 @@ def filter_and_normalize(
             stats["too_short"] += 1
             continue
 
-        ratio = max(len(en), len(ja)) / max(len(ja), len(en), 1)
-        if ratio > max_len_ratio:
+        if len(en) > max_en_chars or len(ja) > max_ja_chars:
+            stats["too_long"] += 1
+            continue
+
+        if row.source_ref == "jparacrawl" and looks_like_crawl_boilerplate(en):
+            stats["boilerplate_noise"] += 1
+            continue
+
+        ratio_limit = max_len_ratio
+        if row.source_ref.startswith("opus100"):
+            ratio_limit = min(max_len_ratio, 3.5)
+
+        ratio = max(len(en), len(ja)) / max(min(len(en), len(ja)), 1)
+        if ratio > ratio_limit:
             stats["len_ratio_fail"] += 1
             continue
 
@@ -151,10 +202,12 @@ def main() -> None:
     parser.add_argument(
         "--output", default="data/processed/pilot_v1.jsonl", help="Output path"
     )
-    parser.add_argument("--min-en-chars", type=int, default=4)
-    parser.add_argument("--min-ja-chars", type=int, default=2)
-    parser.add_argument("--max-len-ratio", type=float, default=9.0)
+    parser.add_argument("--min-en-chars", type=int, default=10)
+    parser.add_argument("--min-ja-chars", type=int, default=4)
+    parser.add_argument("--max-len-ratio", type=float, default=5.0)
     parser.add_argument("--min-quality", type=float, default=0.5)
+    parser.add_argument("--max-en-chars", type=int, default=400)
+    parser.add_argument("--max-ja-chars", type=int, default=400)
     args = parser.parse_args()
 
     input_path = Path(args.input)
@@ -171,6 +224,8 @@ def main() -> None:
         min_ja_chars=args.min_ja_chars,
         max_len_ratio=args.max_len_ratio,
         min_quality=args.min_quality,
+        max_en_chars=args.max_en_chars,
+        max_ja_chars=args.max_ja_chars,
     )
 
     n = write_rows(kept, args.output)
