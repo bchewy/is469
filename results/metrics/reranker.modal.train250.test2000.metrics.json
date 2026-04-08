@@ -1,0 +1,77 @@
+{
+  "source_path": "/results/metrics/advanced_rag_pipeline_outputs.modal.2250.jsonl",
+  "seed": 42,
+  "train_samples": 250,
+  "test_samples": 2000,
+  "run_pipeline": true,
+  "train": {
+    "output_path": "/results/metrics/advanced_rag_pipeline_outputs.modal.2250.jsonl",
+    "num_samples": 250,
+    "avg_latency_ms": 8199.24,
+    "avg_retrieval_ms": 8199.24,
+    "avg_coverage_score": 0.574,
+    "bleu": 64.91,
+    "bleu_tokenizer": "char",
+    "chrfpp": 66.79,
+    "retrieval_eval_samples": 250,
+    "retrieval_hit_at_k": 1.0,
+    "retrieval_recall_at_k": 1.0,
+    "terminology_eval_samples": 205,
+    "terminology_term_total": 334,
+    "terminology_correct_terms": 43,
+    "terminology_accuracy": 0.1287,
+    "error_id_eval_samples": 250,
+    "error_binary_f1": 0.5034,
+    "error_category_macro_f1": 0.1507,
+    "error_category_f1": {
+      "Terminology": 0.0001,
+      "Accuracy": 0.4312,
+      "Fluency/Grammar": 0.1579,
+      "Style/Register": 0.1644,
+      "Locale/Formatting": 0.0001
+    },
+    "error_gold_positive_count": 152,
+    "error_pred_positive_count": 142,
+    "error_check_fallback_count": 0,
+    "error_eval_text_source_counts": {
+      "unknown": 250
+    },
+    "comet": 0.6679,
+    "comet_source": "fallback_chrfpp"
+  },
+  "test": {
+    "output_path": "/results/metrics/advanced_rag_pipeline_outputs.modal.2250.jsonl",
+    "num_samples": 2000,
+    "avg_latency_ms": 8684.09,
+    "avg_retrieval_ms": 8684.09,
+    "avg_coverage_score": 0.5725,
+    "bleu": 66.59,
+    "bleu_tokenizer": "char",
+    "chrfpp": 68.98,
+    "retrieval_eval_samples": 2000,
+    "retrieval_hit_at_k": 0.9995,
+    "retrieval_recall_at_k": 0.9998,
+    "terminology_eval_samples": 1661,
+    "terminology_term_total": 3013,
+    "terminology_correct_terms": 320,
+    "terminology_accuracy": 0.1062,
+    "error_id_eval_samples": 2000,
+    "error_binary_f1": 0.5378,
+    "error_category_macro_f1": 0.1621,
+    "error_category_f1": {
+      "Terminology": 0.0485,
+      "Accuracy": 0.4427,
+      "Fluency/Grammar": 0.1845,
+      "Style/Register": 0.1346,
+      "Locale/Formatting": 0.0001
+    },
+    "error_gold_positive_count": 1248,
+    "error_pred_positive_count": 1132,
+    "error_check_fallback_count": 0,
+    "error_eval_text_source_counts": {
+      "unknown": 2000
+    },
+    "comet": 0.6898,
+    "comet_source": "fallback_chrfpp"
+  }
+}

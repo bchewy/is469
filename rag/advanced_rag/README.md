@@ -16,5 +16,4 @@ py -m modal run rag/advanced_rag/evaluate_new.py --train-samples 250 --test-samp
 ### Do note that the evaluate_outputs.py is the old file with 20 samples as the evaluate_new.py is an improved version of the old file
 
 ### Check reranker.modal.train250.test2000.metrics.json for the finalized metrics
-### Do switch the model from Qwen/Qwen2.5-0.5B-Instruct to Qwen/Qwen2.5-0.7B-Instruct in the
-### advanced_rag_pipeline.py to run the evaluate_new.py file for the accurate metrics
+### Do switch the model from Qwen/Qwen2.5-7B-Instruct to Qwen/Qwen2.5-0.5B-Instruct in the advanced_rag_pipeline.py for faster generation and basic inference of the model

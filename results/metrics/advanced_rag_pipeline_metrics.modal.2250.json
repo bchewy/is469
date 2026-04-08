@@ -1,0 +1,28 @@
+{
+  "variant": "advanced_rag_modal",
+  "num_samples": 499,
+  "avg_latency_ms": 8424.2,
+  "avg_retrieval_ms": null,
+  "avg_coverage_score": 0.5752,
+  "bleu": 64.93,
+  "bleu_tokenizer": "char",
+  "chrfpp": 67.81,
+  "comet": 0.9416,
+  "retrieval_eval_samples": 499,
+  "retrieval_hit_at_k": 0.998,
+  "retrieval_recall_at_k": 0.999,
+  "terminology_eval_samples": 311,
+  "terminology_term_total": 552,
+  "terminology_correct_terms": 57,
+  "terminology_accuracy": 0.1033,
+  "error_id_eval_samples": 499,
+  "error_binary_f1": 0.5254,
+  "error_category_macro_f1": 0.0,
+  "error_category_f1": {
+    "Terminology": 0.0,
+    "Accuracy": 0.0,
+    "Fluency/Grammar": 0.0,
+    "Style/Register": 0.0,
+    "Locale/Formatting": 0.0
+  }
+}

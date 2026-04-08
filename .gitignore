@@ -13,5 +13,11 @@ data/processed/
 data/splits/
 models/
 results/
+!results/
+!results/metrics/
+results/metrics/*
+!results/metrics/advanced_rag_pipeline_outputs.modal.2250.jsonl
+!results/metrics/advanced_rag_pipeline_metrics.modal.2250.json
+!results/metrics/reranker.modal.train250.test2000.metrics.json
 *.safetensors
 *.pdf
