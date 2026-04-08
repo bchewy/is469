@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import argparse
+import csv
 import copy
 import difflib
 import json
@@ -8,9 +9,15 @@ import re
 import random
 import time
 import sys
+import unicodedata
 import warnings
 from pathlib import Path
 from typing import Any
+
+try:
+    import modal
+except Exception:
+    modal = None
 
 
 def _repo_root() -> Path:
@@ -566,19 +573,6 @@ def _split_rows_prioritized(
 def _floor_metric_values(metrics: dict[str, Any], *, eps: float = 0.0001) -> dict[str, Any]:
     adjusted = dict(metrics)
 
-    if "comet_error" in adjusted:
-        del adjusted["comet_error"]
-
-    if "comet" not in adjusted or adjusted["comet"] is None:
-        if "chrfpp" in adjusted and adjusted["chrfpp"] is not None:
-            try:
-                adjusted["comet"] = round(float(adjusted["chrfpp"]) / 100.0, 4)
-                adjusted["comet_source"] = "fallback_chrfpp"
-            except (TypeError, ValueError):
-                adjusted["comet"] = eps
-        else:
-            adjusted["comet"] = eps
-
     keys = [
         "terminology_accuracy",
         "error_binary_f1",
@@ -611,21 +605,161 @@ def _floor_metric_values(metrics: dict[str, Any], *, eps: float = 0.0001) -> dic
     return adjusted
 
 
+def _normalize_ja_term_text(text: str) -> str:
+    normalized = unicodedata.normalize("NFKC", str(text or ""))
+    return "".join(normalized.split())
+
+
+def _load_glossary_entries(kb_dir: str | Path) -> list[tuple[str, str]]:
+    path = Path(kb_dir) / "glossary.csv"
+    if not path.exists():
+        return []
+
+    entries: list[tuple[str, str]] = []
+    with path.open("r", encoding="utf-8-sig", newline="") as f:
+        reader = csv.DictReader(f)
+        for row in reader:
+            source_term_en = str(row.get("source_term_en", "")).strip().lower()
+            approved_ja = _normalize_ja_term_text(str(row.get("approved_ja", "")))
+            if source_term_en and approved_ja:
+                entries.append((source_term_en, approved_ja))
+    return entries
+
+
+def _prediction_text(row: dict[str, Any]) -> str:
+    for key in ("prediction_ja", "answer", "candidate_ja", "reference_ja"):
+        value = str(row.get(key, "")).strip()
+        if value:
+            return value
+    return ""
+
+
+def _recompute_terminology_metrics(
+    rows: list[dict[str, Any]],
+    metrics: dict[str, Any],
+    *,
+    kb_dir: str | Path,
+) -> dict[str, Any]:
+    glossary_entries = _load_glossary_entries(kb_dir)
+    if not glossary_entries:
+        return metrics
+
+    term_total = 0
+    correct_terms = 0
+    eval_samples = 0
+
+    for row in rows:
+        source_en = str(row.get("source_en", "")).lower()
+        prediction_ja_norm = _normalize_ja_term_text(_prediction_text(row))
+
+        row_term_count = 0
+        row_correct_count = 0
+        for source_term_en, approved_ja_norm in glossary_entries:
+            if source_term_en in source_en:
+                row_term_count += 1
+                if approved_ja_norm and approved_ja_norm in prediction_ja_norm:
+                    row_correct_count += 1
+
+        if row_term_count > 0:
+            eval_samples += 1
+            term_total += row_term_count
+            correct_terms += row_correct_count
+
+    updated = dict(metrics)
+    updated["terminology_eval_samples"] = eval_samples
+    updated["terminology_term_total"] = term_total
+    updated["terminology_correct_terms"] = correct_terms
+    updated["terminology_accuracy"] = (
+        round(correct_terms / term_total, 4) if term_total > 0 else None
+    )
+    return updated
+
+
+def _normalize_category_label(text: str) -> str:
+    s = unicodedata.normalize("NFKC", str(text or "")).lower()
+    s = "".join(ch for ch in s if not ch.isspace())
+    s = "".join(
+        ch for ch in s
+        if not unicodedata.category(ch).startswith("P")
+        and not unicodedata.category(ch).startswith("S")
+    )
+    return s
+
+
+_CANONICAL_CATEGORIES = [
+    "Terminology",
+    "Accuracy",
+    "Fluency/Grammar",
+    "Style/Register",
+    "Locale/Formatting",
+]
+_CANONICAL_CATEGORY_BY_NORM = {
+    _normalize_category_label(cat): cat for cat in _CANONICAL_CATEGORIES
+}
+
+
+def _canonicalize_categories(categories: list[Any]) -> set[str]:
+    out: set[str] = set()
+    for category in categories:
+        normalized = _normalize_category_label(str(category))
+        canonical = _CANONICAL_CATEGORY_BY_NORM.get(normalized)
+        if canonical:
+            out.add(canonical)
+    return out
+
+
+def _f1(tp: int, fp: int, fn: int) -> float:
+    precision = tp / (tp + fp) if (tp + fp) else 0.0
+    recall = tp / (tp + fn) if (tp + fn) else 0.0
+    return (2 * precision * recall / (precision + recall)) if (precision + recall) else 0.0
+
+
+def _recompute_error_category_metrics(
+    rows: list[dict[str, Any]],
+    metrics: dict[str, Any],
+) -> dict[str, Any]:
+    pairs: list[tuple[set[str], set[str]]] = []
+    for row in rows:
+        gold = row.get("gold_error_label") or {}
+        gold_categories = _canonicalize_categories(list(gold.get("categories") or []))
+
+        predicted_block = row.get("error_check") or row.get("generated_error_check") or {}
+        predicted_categories = _canonicalize_categories(list(predicted_block.get("categories") or []))
+        pairs.append((gold_categories, predicted_categories))
+
+    category_f1: dict[str, float] = {}
+    for category in _CANONICAL_CATEGORIES:
+        tp = 0
+        fp = 0
+        fn = 0
+        for gold_set, pred_set in pairs:
+            in_gold = category in gold_set
+            in_pred = category in pred_set
+            if in_gold and in_pred:
+                tp += 1
+            elif in_pred and not in_gold:
+                fp += 1
+            elif in_gold and not in_pred:
+                fn += 1
+        score = _f1(tp, fp, fn)
+        category_f1[category] = round(score, 4) if score > 0 else 0.0
+
+    macro = round(sum(category_f1.values()) / len(_CANONICAL_CATEGORIES), 4)
+
+    updated = dict(metrics)
+    updated["error_category_f1"] = category_f1
+    updated["error_category_macro_f1"] = macro
+    return updated
+
+
 def _evaluate_rows_with_fast_comet_fallback(
     rows: list[dict[str, Any]],
     *,
     kb_dir: str | Path,
     output_path: Path,
 ) -> dict[str, Any]:
-    # Keep the eval path stable on machines where COMET/PyTorch is unavailable or slow.
-    import rag.advanced_rag.evaluate_outputs as eval_outputs_mod
-
-    original_compute_comet = eval_outputs_mod.compute_comet_metrics
-    eval_outputs_mod.compute_comet_metrics = lambda predictions: {}
-    try:
-        return evaluate_rows(rows, kb_dir=kb_dir, output_path=output_path)
-    finally:
-        eval_outputs_mod.compute_comet_metrics = original_compute_comet
+    # Run the real COMET scorer from unbabel-comet; do not mock or bypass it.
+    return evaluate_rows(rows, kb_dir=kb_dir, output_path=output_path)
 
 
 def _metrics_path(source_path: Path) -> Path:
@@ -633,6 +767,52 @@ def _metrics_path(source_path: Path) -> Path:
     if stem.startswith("advanced_rag_pipeline"):
         stem = stem.replace("advanced_rag_pipeline", "reranker", 1)
     return source_path.with_name(f"{stem}.metrics.json")
+
+
+def _build_metrics_payload(
+    rows: list[dict[str, Any]],
+    *,
+    kb_dir: str | Path,
+    output_path: Path,
+    seed: int,
+    train_samples: int,
+    test_samples: int,
+    run_pipeline: bool,
+) -> tuple[dict[str, Any], list[dict[str, Any]], list[dict[str, Any]]]:
+    rows = _enrich_rows_for_eval(rows, kb_dir)
+
+    glossary_terms = _load_glossary_terms(kb_dir)
+    train_rows, test_rows = _split_rows_prioritized(
+        rows,
+        train_size=train_samples,
+        test_size=test_samples,
+        seed=seed,
+        glossary_terms=glossary_terms,
+    )
+
+    train_metrics = _floor_metric_values(
+        _evaluate_rows_with_fast_comet_fallback(train_rows, kb_dir=kb_dir, output_path=output_path)
+    )
+    test_metrics = _floor_metric_values(
+        _evaluate_rows_with_fast_comet_fallback(test_rows, kb_dir=kb_dir, output_path=output_path)
+    )
+
+    train_metrics = _recompute_terminology_metrics(train_rows, train_metrics, kb_dir=kb_dir)
+    test_metrics = _recompute_terminology_metrics(test_rows, test_metrics, kb_dir=kb_dir)
+
+    train_metrics = _recompute_error_category_metrics(train_rows, train_metrics)
+    test_metrics = _recompute_error_category_metrics(test_rows, test_metrics)
+
+    payload = {
+        "source_path": str(output_path),
+        "seed": seed,
+        "train_samples": train_samples,
+        "test_samples": test_samples,
+        "run_pipeline": bool(run_pipeline),
+        "train": train_metrics,
+        "test": test_metrics,
+    }
+    return payload, train_rows, test_rows
 
 
 def main() -> None:
@@ -762,33 +942,15 @@ def main() -> None:
             raise SystemExit(1)
         rows = _load_jsonl(output_path)
 
-    rows = _enrich_rows_for_eval(rows, args.kb_dir)
-
-    glossary_terms = _load_glossary_terms(args.kb_dir)
-    train_rows, test_rows = _split_rows_prioritized(
+    payload, train_rows, test_rows = _build_metrics_payload(
         rows,
-        train_size=args.train_samples,
-        test_size=args.test_samples,
+        kb_dir=args.kb_dir,
+        output_path=output_path,
         seed=args.seed,
-        glossary_terms=glossary_terms,
+        train_samples=args.train_samples,
+        test_samples=args.test_samples,
+        run_pipeline=bool(args.run_pipeline),
     )
-
-    train_metrics = _floor_metric_values(
-        _evaluate_rows_with_fast_comet_fallback(train_rows, kb_dir=args.kb_dir, output_path=output_path)
-    )
-    test_metrics = _floor_metric_values(
-        _evaluate_rows_with_fast_comet_fallback(test_rows, kb_dir=args.kb_dir, output_path=output_path)
-    )
-
-    payload = {
-        "source_path": str(output_path),
-        "seed": args.seed,
-        "train_samples": args.train_samples,
-        "test_samples": args.test_samples,
-        "run_pipeline": bool(args.run_pipeline),
-        "train": train_metrics,
-        "test": test_metrics,
-    }
 
     metrics_path = _metrics_path(output_path)
     _save_json(metrics_path, payload)
@@ -804,6 +966,136 @@ def main() -> None:
     print(f"Source: {output_path}")
     print(f"Saved metrics: {metrics_path}")
     print(json.dumps(payload, indent=2, ensure_ascii=False))
+
+
+if modal is not None:
+    MODAL_APP_NAME = "enja-evaluate-new"
+    MODAL_MODELS_DIR = Path("/models")
+    MODAL_DATA_DIR = Path("/data")
+    MODAL_RESULTS_DIR = Path("/results")
+
+    modal_app = modal.App(MODAL_APP_NAME)
+    modal_image = (
+        modal.Image.debian_slim(python_version="3.11")
+        .uv_pip_install(
+            "torch==2.5.1",
+            "transformers>=4.46.0",
+            "accelerate>=1.2.0",
+            "sentence-transformers>=3.3.0",
+            "boto3>=1.37.0",
+            "sacrebleu>=2.5.0",
+            "unbabel-comet>=2.2.2",
+            "sentencepiece>=0.2.0",
+            "protobuf>=4.25,<6",
+        )
+        .add_local_dir(_repo_root() / "src", remote_path="/root/src")
+        .add_local_dir(_repo_root() / "kb", remote_path="/root/kb")
+        .add_local_dir(_repo_root() / "rag", remote_path="/root/rag")
+    )
+
+    modal_models_volume = modal.Volume.from_name("enja-base-models", create_if_missing=True)
+    modal_data_volume = modal.Volume.from_name("enja-data", create_if_missing=True)
+    modal_results_volume = modal.Volume.from_name("enja-results", create_if_missing=True)
+
+    @modal_app.function(
+        image=modal_image,
+        gpu="A100",
+        timeout=8 * 60 * 60,
+        volumes={
+            str(MODAL_MODELS_DIR): modal_models_volume,
+            str(MODAL_DATA_DIR): modal_data_volume,
+            str(MODAL_RESULTS_DIR): modal_results_volume,
+        },
+        secrets=[
+            modal.Secret.from_name("enja-hf"),
+            modal.Secret.from_name("enja-s3-vectors"),
+        ],
+    )
+    def modal_run_evaluate_new(
+        train_samples: int = 250,
+        test_samples: int = 2000,
+        seed: int = 42,
+        kb_dir: str = "/root/kb",
+        dataset_path: str = "/root/kb/gemini_annotated_results.jsonl",
+        generated_output_jsonl: str = "/results/metrics/advanced_rag_pipeline_outputs.modal.2250.jsonl",
+        generation_metrics_json: str = "/results/metrics/advanced_rag_pipeline_metrics.modal.2250.json",
+        evaluation_metrics_json: str = "/results/metrics/reranker.modal.train250.test2000.metrics.json",
+        answer_model_path: str = "",
+        max_samples: int = 0,
+        save_splits: bool = False,
+    ) -> dict[str, Any]:
+        sys.path.append("/root")
+
+        from rag.advanced_rag.advanced_rag_pipeline import run_batch_evaluation
+
+        total_samples = max(1, int(train_samples) + int(test_samples))
+        generation_limit = total_samples if int(max_samples) <= 0 else int(max_samples)
+
+        generation_payload = run_batch_evaluation(
+            input_jsonl=dataset_path,
+            output_jsonl=generated_output_jsonl,
+            metrics_json=generation_metrics_json,
+            max_samples=generation_limit,
+            answer_model_path=(answer_model_path or None),
+        )
+
+        output_path = Path(str(generation_payload.get("output_path", generated_output_jsonl)))
+        rows = _load_jsonl(output_path)
+
+        payload, train_rows, test_rows = _build_metrics_payload(
+            rows,
+            kb_dir=kb_dir,
+            output_path=output_path,
+            seed=int(seed),
+            train_samples=int(train_samples),
+            test_samples=int(test_samples),
+            run_pipeline=True,
+        )
+
+        metrics_path = Path(evaluation_metrics_json)
+        _save_json(metrics_path, payload)
+
+        if save_splits:
+            _save_jsonl(output_path.with_name(f"{output_path.stem}.train.jsonl"), train_rows)
+            _save_jsonl(output_path.with_name(f"{output_path.stem}.test.jsonl"), test_rows)
+
+        return {
+            "status": "completed",
+            "generation": generation_payload,
+            "evaluation_metrics_path": str(metrics_path),
+            "evaluation": payload,
+        }
+
+    @modal_app.local_entrypoint()
+    def modal_entrypoint(
+        train_samples: int = 250,
+        test_samples: int = 2000,
+        seed: int = 42,
+        kb_dir: str = "/root/kb",
+        dataset_path: str = "/root/kb/gemini_annotated_results.jsonl",
+        generated_output_jsonl: str = "/results/metrics/advanced_rag_pipeline_outputs.modal.2250.jsonl",
+        generation_metrics_json: str = "/results/metrics/advanced_rag_pipeline_metrics.modal.2250.json",
+        evaluation_metrics_json: str = "/results/metrics/reranker.modal.train250.test2000.metrics.json",
+        answer_model_path: str = "",
+        max_samples: int = 0,
+        save_splits: bool = False,
+    ) -> None:
+        result = modal_run_evaluate_new.remote(
+            train_samples=int(train_samples),
+            test_samples=int(test_samples),
+            seed=int(seed),
+            kb_dir=kb_dir,
+            dataset_path=dataset_path,
+            generated_output_jsonl=generated_output_jsonl,
+            generation_metrics_json=generation_metrics_json,
+            evaluation_metrics_json=evaluation_metrics_json,
+            answer_model_path=answer_model_path,
+            max_samples=int(max_samples),
+            save_splits=bool(save_splits),
+        )
+        print(json.dumps(result, indent=2, ensure_ascii=False))
+else:
+    modal_app = None
 
 
 if __name__ == "__main__":
