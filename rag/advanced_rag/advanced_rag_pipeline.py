@@ -30,14 +30,35 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
+# Allow running this file directly (python rag/advanced_rag/advanced_rag_pipeline.py)
+# by adding the repository root to sys.path before package imports.
+_THIS_FILE = Path(__file__).resolve()
+for _candidate in [_THIS_FILE.parent, *_THIS_FILE.parents]:
+    if (_candidate / "src").is_dir():
+        candidate_str = str(_candidate)
+        if candidate_str not in sys.path:
+            sys.path.insert(0, candidate_str)
+        break
+
 from src.utils.aws_profiles import s3vectors_client
+
+try:
+    import modal
+except Exception:
+    modal = None
 
 
 def _repo_root() -> Path:
-    for path in [Path.cwd(), *Path.cwd().parents]:
+    search_roots = [_THIS_FILE.parent, *_THIS_FILE.parents, Path.cwd(), *Path.cwd().parents]
+    seen: set[str] = set()
+    for path in search_roots:
+        key = str(path)
+        if key in seen:
+            continue
+        seen.add(key)
         if (path / "src" / "retrieval").is_dir():
             return path
-    return Path.cwd()
+    return _THIS_FILE.parent
 
 
 def _load_dotenv_file(path: Path) -> None:
@@ -96,6 +117,62 @@ def _env_enabled(name: str, default: bool = False) -> bool:
     if raw is None:
         return default
     return raw.strip().lower() in {"1", "true", "yes", "on"}
+
+
+MODAL_APP_NAME = "enja-advanced-rag-pipeline"
+MODAL_MODELS_DIR = Path("/models")
+MODAL_DATA_DIR = Path("/data")
+MODAL_RESULTS_DIR = Path("/results")
+
+
+def _load_jsonl(path: Path, *, max_samples: int | None = None) -> list[dict[str, Any]]:
+    rows: list[dict[str, Any]] = []
+    with path.open("r", encoding="utf-8-sig") as f:
+        for line in f:
+            line = line.strip()
+            if not line:
+                continue
+            rows.append(json.loads(line))
+            if max_samples is not None and len(rows) >= max_samples:
+                break
+    return rows
+
+
+def _save_jsonl(path: Path, rows: list[dict[str, Any]]) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    with path.open("w", encoding="utf-8") as f:
+        for row in rows:
+            f.write(json.dumps(row, ensure_ascii=False) + "\n")
+
+
+def _save_json(path: Path, payload: dict[str, Any]) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    with path.open("w", encoding="utf-8") as f:
+        json.dump(payload, f, indent=2, ensure_ascii=False)
+
+
+def _resolve_input_path(path_str: str) -> Path:
+    p = Path(path_str)
+    if p.is_absolute() and p.exists():
+        return p
+    volume_candidate = MODAL_DATA_DIR / p
+    if volume_candidate.exists():
+        return volume_candidate
+    repo_candidate = _repo_root() / p
+    if repo_candidate.exists():
+        return repo_candidate
+    return p
+
+
+def _resolve_output_path(path_str: str) -> Path:
+    p = Path(path_str)
+    if p.is_absolute():
+        return p
+    if MODAL_RESULTS_DIR.exists():
+        if p.parts and p.parts[0] == "results":
+            p = Path(*p.parts[1:]) if len(p.parts) > 1 else Path()
+        return MODAL_RESULTS_DIR / p
+    return _repo_root() / p
 
 
 @dataclass
@@ -699,7 +776,8 @@ class AdvancedRAGPipeline:
         self.rerank_top_n = rerank_top_n if rerank_top_n is not None else int(os.environ.get("RERANK_TOP_N_DEFAULT", "6"))
         self.enable_rerank = _env_enabled("RAG_ENABLE_RERANK", default=True)
         self.answer_model_path = os.environ.get(
-            "ANSWER_MODEL_PATH", os.environ.get("ANSWER_BASE_MODEL_ID", "Qwen/Qwen2.5-0.5B-Instruct")
+            # For faster loading and generation, use a lighter model: Qwen/Qwen2.5-0.5B-Instruct
+            "ANSWER_MODEL_PATH", os.environ.get("ANSWER_BASE_MODEL_ID", "Qwen/Qwen2.5-7B-Instruct")
         )
         self.answer_max_new_tokens = int(os.environ.get("ANSWER_MAX_NEW_TOKENS", "128"))
         self.answer_temperature = float(os.environ.get("ANSWER_TEMPERATURE", "0.0"))
@@ -1284,6 +1362,264 @@ def build_pipeline_from_env() -> AdvancedRAGPipeline:
     )
 
 
+def run_batch_evaluation(
+    *,
+    input_jsonl: str,
+    output_jsonl: str,
+    metrics_json: str,
+    max_samples: int = 0,
+    answer_model_path: str | None = None,
+) -> dict[str, Any]:
+    if answer_model_path:
+        os.environ["ANSWER_MODEL_PATH"] = answer_model_path
+
+    input_path = _resolve_input_path(input_jsonl)
+    if not input_path.exists():
+        raise FileNotFoundError(f"Input JSONL not found: {input_path}")
+
+    sample_limit = max_samples if max_samples > 0 else None
+    rows = _load_jsonl(input_path, max_samples=sample_limit)
+    if not rows:
+        raise ValueError(f"No rows loaded from {input_path}")
+
+    _ensure_vector_credentials()
+    pipeline = build_pipeline_from_env()
+    assets = build_eval_assets(rows, os.environ.get("RAG_KB_DIR", str(_repo_root() / "kb")))
+
+    predictions: list[dict[str, Any]] = []
+    total_latency_ms = 0.0
+    total_coverage_score = 0.0
+
+    for row in rows:
+        row_id = str(row.get("id", "")).strip()
+        source_en = str(row.get("source_en", "")).strip()
+        reference_ja = str(row.get("reference_ja", "") or row.get("target_ja", "")).strip()
+        if not source_en:
+            continue
+
+        t0 = time.perf_counter()
+        result = pipeline.run(source_en)
+        latency_ms = round((time.perf_counter() - t0) * 1000.0, 1)
+        total_latency_ms += latency_ms
+
+        retrieved_texts = [chunk.text for chunk in result.chunks]
+        retrieval_eval = build_retrieval_eval(
+            source_en=source_en,
+            retrieved_texts=retrieved_texts,
+            assets=assets,
+        )
+        terminology_eval = build_terminology_eval(
+            source_en=source_en,
+            prediction_ja=result.answer,
+            assets=assets,
+        )
+
+        strata_hit = len({chunk.stratum for chunk in result.chunks if chunk.stratum})
+        coverage_score = round(strata_hit / max(1, len(DEFAULT_MERGE_ORDER)), 4)
+        total_coverage_score += coverage_score
+
+        has_error = bool(reference_ja) and (_normalize_ja(result.answer) != _normalize_ja(reference_ja))
+        error_check = {
+            "has_error": has_error,
+            "severity": "minor" if has_error else "none",
+            "categories": [],
+            "rationale": "auto-check from prediction/reference mismatch",
+        }
+
+        predictions.append(
+            {
+                "id": row_id,
+                "source_en": source_en,
+                "reference_ja": reference_ja,
+                "prediction_ja": result.answer,
+                "variant": "advanced_rag_modal",
+                "latency_ms": latency_ms,
+                "retrieval_ms": None,
+                "coverage_score": coverage_score,
+                "retrieval_chunks": [
+                    {
+                        "key": chunk.key,
+                        "stratum": chunk.stratum,
+                        "distance": chunk.distance,
+                        "rerank_score": chunk.rerank_score,
+                        "source_file": chunk.source_file,
+                        "source_line": chunk.source_line,
+                        "text_preview": (chunk.text[:300] + "...") if len(chunk.text) > 300 else chunk.text,
+                    }
+                    for chunk in result.chunks
+                ],
+                "retrieval_eval": retrieval_eval,
+                "terminology_eval": terminology_eval,
+                "error_check": error_check,
+                "gold_error_label": assets.gold_error_by_id.get(_canonicalize_id(row_id)) if row_id else None,
+            }
+        )
+
+    if not predictions:
+        raise ValueError("No evaluable rows found in input dataset.")
+
+    metrics: dict[str, Any] = {
+        "variant": "advanced_rag_modal",
+        "num_samples": len(predictions),
+        "avg_latency_ms": round(total_latency_ms / len(predictions), 1),
+        "avg_retrieval_ms": None,
+        "avg_coverage_score": round(total_coverage_score / len(predictions), 4),
+    }
+
+    metrics.update(compute_translation_metrics(predictions))
+    try:
+        metrics.update(compute_comet_metrics(predictions))
+    except Exception as exc:
+        metrics["comet_error"] = str(exc)
+    metrics.update(compute_retrieval_metrics(predictions))
+    metrics.update(compute_terminology_metrics(predictions))
+    metrics.update(compute_error_id_metrics(predictions))
+
+    output_path = _resolve_output_path(output_jsonl)
+    metrics_path = _resolve_output_path(metrics_json)
+    _save_jsonl(output_path, predictions)
+    _save_json(metrics_path, metrics)
+
+    return {
+        "status": "completed",
+        "input_path": str(input_path),
+        "output_path": str(output_path),
+        "metrics_path": str(metrics_path),
+        **metrics,
+    }
+
+
+if modal is not None:
+    modal_app = modal.App(MODAL_APP_NAME)
+    modal_image = (
+        modal.Image.debian_slim(python_version="3.11")
+        .uv_pip_install(
+            "torch==2.5.1",
+            "transformers>=4.46.0",
+            "accelerate>=1.2.0",
+            "sentence-transformers>=3.3.0",
+            "boto3>=1.37.0",
+            "sacrebleu>=2.5.0",
+            "unbabel-comet>=2.2.2",
+            "sentencepiece>=0.2.0",
+            "protobuf>=4.25,<6",
+        )
+        .add_local_dir(_repo_root() / "src", remote_path="/root/src")
+        .add_local_dir(_repo_root() / "kb", remote_path="/root/kb")
+    )
+
+    modal_models_volume = modal.Volume.from_name("enja-base-models", create_if_missing=True)
+    modal_data_volume = modal.Volume.from_name("enja-data", create_if_missing=True)
+    modal_results_volume = modal.Volume.from_name("enja-results", create_if_missing=True)
+
+    @modal_app.function(
+        image=modal_image,
+        gpu="A100",
+        timeout=60 * 60,
+        volumes={
+            str(MODAL_MODELS_DIR): modal_models_volume,
+            str(MODAL_DATA_DIR): modal_data_volume,
+            str(MODAL_RESULTS_DIR): modal_results_volume,
+        },
+        secrets=[
+            modal.Secret.from_name("enja-hf"),
+            modal.Secret.from_name("enja-s3-vectors"),
+        ],
+    )
+    def modal_run_query(query: str, show_chunks: bool = False, answer_model_path: str = "") -> dict[str, Any]:
+        sys.path.append("/root")
+        if answer_model_path:
+            os.environ["ANSWER_MODEL_PATH"] = answer_model_path
+        _ensure_vector_credentials()
+        pipeline = build_pipeline_from_env()
+        result = pipeline.run(query)
+        payload: dict[str, Any] = {
+            "query": query,
+            "answer": result.answer,
+            "chunk_count": len(result.chunks),
+            "context_chars": len(result.context),
+        }
+        if show_chunks:
+            payload["chunks"] = [
+                {
+                    "stratum": chunk.stratum,
+                    "rerank_score": chunk.rerank_score,
+                    "distance": chunk.distance,
+                    "key": chunk.key,
+                    "source_file": chunk.source_file,
+                    "source_line": chunk.source_line,
+                    "text_preview": (chunk.text[:240] + "...") if len(chunk.text) > 240 else chunk.text,
+                }
+                for chunk in result.chunks
+            ]
+        return payload
+
+    @modal_app.function(
+        image=modal_image,
+        gpu="A100",
+        timeout=2 * 60 * 60,
+        volumes={
+            str(MODAL_MODELS_DIR): modal_models_volume,
+            str(MODAL_DATA_DIR): modal_data_volume,
+            str(MODAL_RESULTS_DIR): modal_results_volume,
+        },
+        secrets=[
+            modal.Secret.from_name("enja-hf"),
+            modal.Secret.from_name("enja-s3-vectors"),
+        ],
+    )
+    def modal_run_evaluation(
+        input_jsonl: str,
+        output_jsonl: str,
+        metrics_json: str,
+        max_samples: int = 0,
+        answer_model_path: str = "",
+    ) -> dict[str, Any]:
+        sys.path.append("/root")
+        return run_batch_evaluation(
+            input_jsonl=input_jsonl,
+            output_jsonl=output_jsonl,
+            metrics_json=metrics_json,
+            max_samples=max_samples,
+            answer_model_path=answer_model_path or None,
+        )
+
+    @modal_app.local_entrypoint()
+    def modal_entrypoint(
+        query: str = "",
+        eval_input: str = "",
+        output_jsonl: str = "/results/metrics/advanced_rag_pipeline_outputs.modal.jsonl",
+        metrics_json: str = "/results/metrics/advanced_rag_pipeline_metrics.modal.json",
+        max_samples: int = 0,
+        answer_model_path: str = "",
+        show_chunks: bool = False,
+    ) -> None:
+        if eval_input:
+            print(
+                modal_run_evaluation.remote(
+                    input_jsonl=eval_input,
+                    output_jsonl=output_jsonl,
+                    metrics_json=metrics_json,
+                    max_samples=max(0, int(max_samples)),
+                    answer_model_path=answer_model_path,
+                )
+            )
+            return
+
+        if not query:
+            raise SystemExit("Provide query=<text> or eval_input=<path>.")
+
+        print(
+            modal_run_query.remote(
+                query=query,
+                show_chunks=show_chunks,
+                answer_model_path=answer_model_path,
+            )
+        )
+else:
+    modal_app = None
+
+
 
 
 
@@ -1314,6 +1650,37 @@ def main() -> None:
         help="English query to retrieve against the S3 vector bucket. If omitted, the script prompts interactively.",
     )
     parser.add_argument(
+        "--use-modal",
+        action="store_true",
+        help="Run on Modal GPU instead of local execution.",
+    )
+    parser.add_argument(
+        "--modal-eval-input",
+        default="",
+        help="JSONL input path for Modal batch evaluation. Example: /data/splits/test_v1.jsonl",
+    )
+    parser.add_argument(
+        "--modal-output-jsonl",
+        default="/results/metrics/advanced_rag_pipeline_outputs.modal.jsonl",
+        help="Output JSONL path when --modal-eval-input is set.",
+    )
+    parser.add_argument(
+        "--modal-metrics-json",
+        default="/results/metrics/advanced_rag_pipeline_metrics.modal.json",
+        help="Metrics JSON path when --modal-eval-input is set.",
+    )
+    parser.add_argument(
+        "--modal-max-samples",
+        type=int,
+        default=0,
+        help="Optional cap for Modal batch evaluation rows.",
+    )
+    parser.add_argument(
+        "--modal-answer-model-path",
+        default="",
+        help="Optional answer model path/id override for Modal execution.",
+    )
+    parser.add_argument(
         "--interactive",
         action="store_true",
         help="Keep the process alive and answer multiple questions in one session (type 'exit' to quit).",
@@ -1323,6 +1690,46 @@ def main() -> None:
 
     query = args.query
     interactive_mode = bool(args.interactive or not query)
+
+    if args.use_modal:
+        if modal is None or modal_app is None:
+            raise SystemExit(
+                "Modal support is unavailable. Install 'modal' and retry with 'modal setup' completed."
+            )
+
+        if args.modal_eval_input:
+            payload = modal_run_evaluation.remote(
+                input_jsonl=args.modal_eval_input,
+                output_jsonl=args.modal_output_jsonl,
+                metrics_json=args.modal_metrics_json,
+                max_samples=max(0, int(args.modal_max_samples)),
+                answer_model_path=args.modal_answer_model_path,
+            )
+            print(json.dumps(payload, indent=2, ensure_ascii=False))
+            return
+
+        if not query:
+            if not sys.stdin.isatty():
+                raise SystemExit(
+                    "No query provided. Pass a query argument or run interactively from a terminal."
+                )
+            query = input("Enter a question for Japanese translation: ").strip()
+        if not query:
+            raise SystemExit("No query provided.")
+
+        payload = modal_run_query.remote(
+            query=query,
+            show_chunks=bool(args.show_chunks),
+            answer_model_path=args.modal_answer_model_path,
+        )
+        print("\n=== Answer (Modal) ===\n")
+        print(str(payload.get("answer", "")))
+        if args.show_chunks:
+            print("\n=== Reranked chunks (Modal) ===\n")
+            for chunk in payload.get("chunks", []):
+                print(json.dumps(chunk, ensure_ascii=False))
+        return
+
     if interactive_mode and not sys.stdin.isatty() and not query:
         raise SystemExit(
             "No query provided. Run this script in an interactive terminal or pass the query as an argument."
