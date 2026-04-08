@@ -777,7 +777,7 @@ class AdvancedRAGPipeline:
         self.enable_rerank = _env_enabled("RAG_ENABLE_RERANK", default=True)
         self.answer_model_path = os.environ.get(
             # For faster loading and generation, use a lighter model: Qwen/Qwen2.5-0.5B-Instruct
-            "ANSWER_MODEL_PATH", os.environ.get("ANSWER_BASE_MODEL_ID", "Qwen/Qwen2.5-7B-Instruct")
+            "ANSWER_MODEL_PATH", os.environ.get("ANSWER_BASE_MODEL_ID", "Qwen/Qwen2.5-0.5B-Instruct")
         )
         self.answer_max_new_tokens = int(os.environ.get("ANSWER_MAX_NEW_TOKENS", "128"))
         self.answer_temperature = float(os.environ.get("ANSWER_TEMPERATURE", "0.0"))
