@@ -43,6 +43,6 @@ retrieval:
   # Default bundles repo kb/ into the Modal image at /root/kb. Use /data/kb if you volume-sync JSONL only.
   kb_dir: /root/kb
   embed_model: intfloat/multilingual-e5-small
-  top_k: 20
-  max_context_chars: 12000
+  top_k: 5
+  max_context_chars: 6000
 

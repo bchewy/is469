@@ -97,6 +97,12 @@ _CATEGORY_DEFINITIONS = (
     "- Locale/Formatting: Wrong format for numbers, dates, currencies, punctuation, "
     "or proper nouns. Includes using Western punctuation instead of Japanese 。、"
     ", or leaving proper nouns in English when a standard Japanese form exists.\n"
+    "- Locale/Formatting: Wrong format for numbers, dates, currencies, punctuation, "
+    "or proper nouns. Includes using Western punctuation instead of Japanese 。、, "
+    "using '2024/01/01' instead of '2024年1月1日', "
+    "writing '$100' instead of '100ドル', "
+    "or leaving a proper noun in English when standard katakana exists. "
+    "Example: writing 'McDonald's' instead of 'マクドナルド'.\n"
 )
 
 _LOCALE_FEW_SHOTS = (
