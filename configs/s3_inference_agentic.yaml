@@ -29,7 +29,7 @@ retrieval:
   enabled: true
   backend: s3_vectors
   vector_bucket_name: is469-genai-grp-project
-  index_name: rag-vector-2
+  index_name: rag-vector
   region: ap-southeast-1
   kb_dir: kb
   embed_model: intfloat/multilingual-e5-small

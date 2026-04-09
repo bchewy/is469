@@ -215,18 +215,23 @@ def _self_reflect(
     client: OpenRouterClient,
     source_en: str,
     candidate_ja: str,
+    glossary_context: str,
     model: str,
 ) -> str:
     """Self-reflection gate: catches obvious issues before the external critic."""
+    user_content = (
+        f"English (source):\n{source_en}\n\n"
+        f"Japanese (candidate):\n{candidate_ja}"
+    )
+    if glossary_context:
+        user_content += (
+            f"\n\n{glossary_context}\n\n"
+            "IMPORTANT: Verify the candidate uses the EXACT approved Japanese "
+            "forms listed above. If any term is wrong, fix it."
+        )
     messages = [
         {"role": "system", "content": SYSTEM_REFLECTION_PROMPT},
-        {
-            "role": "user",
-            "content": (
-                f"English (source):\n{source_en}\n\n"
-                f"Japanese (candidate):\n{candidate_ja}"
-            ),
-        },
+        {"role": "user", "content": user_content},
     ]
     resp = client.chat(
         messages=messages, model=model, temperature=0.1, max_tokens=2048
@@ -240,6 +245,7 @@ def _run_critic(
     client: OpenRouterClient,
     source_en: str,
     candidate_ja: str,
+    glossary_context: str,
     model: str,
 ) -> tuple[float, bool, str]:
     """Score a candidate translation. Returns (coverage, has_error, feedback)."""
@@ -251,7 +257,7 @@ def _run_critic(
                 source_en=source_en,
                 candidate_ja=candidate_ja,
                 extra_instructions="Be strict. Score 0-1.",
-                context="",
+                context=glossary_context,
             ),
         },
     ]
@@ -308,14 +314,21 @@ def translate_with_agent(
     available = executor.available_tool_names
     print(f"    available tools: {available}")
 
-    # --- Phase 1: ReAct translation with tools ---
+    # --- Phase 0: Pre-scan glossary for deterministic grounding ---
+    glossary_matches = executor.scan_source_for_glossary(source_en)
+    glossary_context = executor.format_glossary_context(glossary_matches)
+    if glossary_matches:
+        print(f"    pre-scanned glossary: {len(glossary_matches)} terms")
+
+    # --- Phase 1: ReAct translation with tools + glossary context ---
     executor.reset_log()
+    user_content = f"Translate this English text into Japanese:\n\n{source_en}"
+    if glossary_context:
+        user_content += f"\n\n{glossary_context}"
+
     messages = [
         {"role": "system", "content": SYSTEM_TRANSLATOR_PROMPT},
-        {
-            "role": "user",
-            "content": f"Translate this English text into Japanese:\n\n{source_en}",
-        },
+        {"role": "user", "content": user_content},
     ]
 
     translation, tool_calls = _run_with_tools(
@@ -328,24 +341,26 @@ def translate_with_agent(
     )
     total_tool_calls += len(tool_calls)
 
-    # --- Phase 2: Self-reflection ---
+    # --- Phase 2: Self-reflection (glossary-aware) ---
     if enable_reflection:
         print("    reflecting...")
         reflected = _self_reflect(
             client=client,
             source_en=source_en,
             candidate_ja=translation,
+            glossary_context=glossary_context,
             model=reflector_model,
         )
         if reflected != translation:
             print("    reflection fixed issues")
             translation = reflected
 
-    # --- Phase 3: External critic ---
+    # --- Phase 3: External critic (glossary-aware) ---
     coverage, has_error, feedback = _run_critic(
         client=client,
         source_en=source_en,
         candidate_ja=translation,
+        glossary_context=glossary_context,
         model=critic_model,
     )
 
@@ -375,17 +390,18 @@ def translate_with_agent(
         executor.reset_log()
         print(f"    revision {revisions}/{max_revisions}...")
 
+        revision_content = (
+            f"English (source):\n{source_en}\n\n"
+            f"Previous translation (has issues):\n{translation}\n\n"
+            f"QA feedback:\n{feedback}\n\n"
+        )
+        if glossary_context:
+            revision_content += f"{glossary_context}\n\n"
+        revision_content += "Provide the corrected Japanese translation only."
+
         revision_messages = [
             {"role": "system", "content": SYSTEM_REVISER_PROMPT},
-            {
-                "role": "user",
-                "content": (
-                    f"English (source):\n{source_en}\n\n"
-                    f"Previous translation (has issues):\n{translation}\n\n"
-                    f"QA feedback:\n{feedback}\n\n"
-                    "Provide the corrected Japanese translation only."
-                ),
-            },
+            {"role": "user", "content": revision_content},
         ]
 
         translation, tool_calls = _run_with_tools(
@@ -404,6 +420,7 @@ def translate_with_agent(
                 client=client,
                 source_en=source_en,
                 candidate_ja=translation,
+                glossary_context=glossary_context,
                 model=reflector_model,
             )
             if reflected != translation:
@@ -414,6 +431,7 @@ def translate_with_agent(
             client=client,
             source_en=source_en,
             candidate_ja=translation,
+            glossary_context=glossary_context,
             model=critic_model,
         )
 

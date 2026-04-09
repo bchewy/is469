@@ -343,12 +343,27 @@ class ToolExecutor:
         ]
 
     @staticmethod
+    def _is_valid_glossary_entry(row: dict[str, str]) -> bool:
+        """Filter out corrupted/scraped rows in the glossary CSV."""
+        ja = (row.get("approved_ja") or "").strip()
+        note = (row.get("usage_note") or "").strip()
+        if not ja:
+            return False
+        if len(ja) > 30 or "Log" in ja or "freq=" in note:
+            return False
+        if any(c.isdigit() for c in ja[:5]):
+            return False
+        return True
+
+    @staticmethod
     def _load_glossary(path: Path) -> dict[str, GlossaryEntry]:
         entries: dict[str, GlossaryEntry] = {}
         if not path.is_file():
             return entries
         with path.open(newline="", encoding="utf-8") as f:
             for row in csv.DictReader(f):
+                if not ToolExecutor._is_valid_glossary_entry(row):
+                    continue
                 term = row["source_term_en"].strip().lower()
                 forbidden_raw = row.get("forbidden_variants", "") or ""
                 forbidden = [
@@ -361,6 +376,60 @@ class ToolExecutor:
                     forbidden_variants=forbidden,
                 )
         return entries
+
+    def scan_source_for_glossary(self, source_en: str) -> list[dict[str, Any]]:
+        """Pre-scan source text and return ALL matching glossary entries.
+
+        Uses word-boundary regex, longest-match-first to avoid overlaps,
+        and skips single-char terms to reduce noise.
+        """
+        source_lower = source_en.lower()
+        raw_matches: list[tuple[str, GlossaryEntry]] = []
+        for key, entry in self.glossary.items():
+            if len(key) < 2:
+                continue
+            pattern = r"\b" + re.escape(key) + r"\b"
+            if re.search(pattern, source_lower):
+                raw_matches.append((key, entry))
+
+        raw_matches.sort(key=lambda x: len(x[0]), reverse=True)
+        seen_spans: list[tuple[int, int]] = []
+        results: list[dict[str, Any]] = []
+
+        for key, entry in raw_matches:
+            pattern = r"\b" + re.escape(key) + r"\b"
+            m = re.search(pattern, source_lower)
+            if not m:
+                continue
+            start, end = m.start(), m.end()
+            if any(s <= start < e or s < end <= e for s, e in seen_spans):
+                continue
+            seen_spans.append((start, end))
+            result: dict[str, Any] = {
+                "term": entry.source_term_en,
+                "approved_ja": entry.approved_ja,
+            }
+            if entry.forbidden_variants:
+                result["forbidden_variants"] = entry.forbidden_variants
+            results.append(result)
+
+        return results
+
+    @staticmethod
+    def format_glossary_context(matches: list[dict[str, Any]]) -> str:
+        """Format matched glossary entries as a context block for prompts."""
+        if not matches:
+            return ""
+        lines = []
+        for m in matches:
+            line = f"{m['term']} → {m['approved_ja']}"
+            if m.get("forbidden_variants"):
+                line += f" (NOT: {', '.join(m['forbidden_variants'])})"
+            lines.append(f"- {line}")
+        return (
+            "## Mandatory Glossary — use these EXACT Japanese forms\n"
+            + "\n".join(lines)
+        )
 
     def execute(self, name: str, arguments: dict[str, Any]) -> str:
         if name == "lookup_glossary":
