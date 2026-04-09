@@ -71,7 +71,7 @@ def main():
     train_cfg = cfg.get("training", {})
     data_cfg = cfg.get("data", {})
 
-    base_model_id = model_cfg.get("base_model_id", "Qwen/Qwen2.5-7B-Instruct")
+    base_model_id = model_cfg.get("base_model_id", "Qwen/Qwen2.5-0.5B-Instruct")
     output_adapter_dir = args.output_dir or model_cfg.get("output_adapter_dir", "outputs/adapter")
 
     local_model_path = model_cfg.get("model_local_path")
@@ -88,8 +88,20 @@ def main():
     lora_alpha = train_cfg.get("lora_alpha", lora_rank)
     batch_size = train_cfg.get("batch_size", 8)
     max_seq_len = train_cfg.get("max_seq_len", 2048)
+    max_steps = int(train_cfg.get("max_steps", -1))
     early_stopping_patience = train_cfg.get("early_stopping_patience", 0)
     eval_steps = train_cfg.get("eval_steps", 500)
+    save_steps = int(train_cfg.get("save_steps", eval_steps))
+    gradient_checkpointing = bool(train_cfg.get("gradient_checkpointing", True))
+    gradient_accumulation_steps = int(
+        train_cfg.get("gradient_accumulation_steps", max(1, 32 // batch_size))
+    )
+    dataloader_num_workers = int(train_cfg.get("dataloader_num_workers", 0))
+    allow_tf32 = bool(train_cfg.get("allow_tf32", True))
+    optim = train_cfg.get("optim", "adamw_torch_fused")
+    logging_nan_inf_filter = bool(train_cfg.get("logging_nan_inf_filter", True))
+    warmup_ratio = float(train_cfg.get("warmup_ratio", 0.1))
+    max_grad_norm = float(train_cfg.get("max_grad_norm", 0.3))
 
     train_path = data_cfg.get("train_path", "data/splits/train_v1.jsonl")
     dev_path = data_cfg.get("dev_path", "data/splits/dev_v1.jsonl")
@@ -97,6 +109,10 @@ def main():
     train_rows = load_jsonl(train_path)
     dev_rows = load_jsonl(dev_path)
     print(f"Train rows: {len(train_rows)}, Dev rows: {len(dev_rows)}")
+
+    if torch.cuda.is_available():
+        torch.backends.cuda.matmul.allow_tf32 = allow_tf32
+        torch.backends.cudnn.allow_tf32 = allow_tf32
 
     tokenizer = AutoTokenizer.from_pretrained(
         model_path,
@@ -148,20 +164,23 @@ def main():
     sft_config = SFTConfig(
         output_dir=checkpoint_dir,
         num_train_epochs=epochs,
+        max_steps=max_steps,
         per_device_train_batch_size=batch_size,
         per_device_eval_batch_size=batch_size,
-        gradient_accumulation_steps=max(1, 32 // batch_size),
-        gradient_checkpointing=True,
-        gradient_checkpointing_kwargs={"use_reentrant": False},
+        gradient_accumulation_steps=gradient_accumulation_steps,
+        gradient_checkpointing=gradient_checkpointing,
+        gradient_checkpointing_kwargs=(
+            {"use_reentrant": False} if gradient_checkpointing else None
+        ),
         learning_rate=lr,
         weight_decay=0.01,
-        warmup_ratio=0.1,
+        warmup_ratio=warmup_ratio,
         lr_scheduler_type="cosine",
         logging_steps=10,
         eval_strategy="steps",
         eval_steps=eval_steps,
         save_strategy="steps",
-        save_steps=eval_steps,
+        save_steps=save_steps,
         save_total_limit=2,
         load_best_model_at_end=use_early_stopping,
         metric_for_best_model="eval_loss" if use_early_stopping else None,
@@ -169,10 +188,13 @@ def main():
         bf16=True,
         seed=seed,
         report_to="none",
-        max_grad_norm=0.3,
-        optim="adamw_torch_fused",
+        max_grad_norm=max_grad_norm,
+        optim=optim,
         max_length=max_seq_len,
         packing=False,
+        dataloader_num_workers=dataloader_num_workers,
+        tf32=allow_tf32,
+        logging_nan_inf_filter=logging_nan_inf_filter,
     )
 
     callbacks = []
@@ -207,8 +229,17 @@ def main():
         "train_rows": len(train_rows),
         "dev_rows": len(dev_rows),
         "epochs": epochs,
+        "max_steps": max_steps,
         "lora_rank": lora_rank,
         "lr": lr,
+        "batch_size": batch_size,
+        "gradient_accumulation_steps": gradient_accumulation_steps,
+        "gradient_checkpointing": gradient_checkpointing,
+        "allow_tf32": allow_tf32,
+        "warmup_ratio": warmup_ratio,
+        "max_grad_norm": max_grad_norm,
+        "optim": optim,
+        "logging_nan_inf_filter": logging_nan_inf_filter,
         "elapsed_seconds": round(elapsed, 1),
         "eval_loss": eval_results.get("eval_loss"),
     }

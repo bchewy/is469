@@ -21,3 +21,4 @@ results/metrics/*
 !results/metrics/reranker.modal.train250.test2000.metrics.json
 *.safetensors
 *.pdf
+primeintellect/
