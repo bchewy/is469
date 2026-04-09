@@ -1,0 +1,37 @@
+project:
+  name: en-ja-translation
+  domain: general_mixed
+  seed: 42
+
+models:
+  translator: anthropic/claude-sonnet-4-6
+  critic: anthropic/claude-sonnet-4-6    # can use a different model for independent evaluation
+  reflector: anthropic/claude-sonnet-4-6 # self-reflection gate (defaults to translator if omitted)
+
+variant:
+  id: s3_agentic
+  description: >
+    Agentic RAG with ReAct workflow (Reason-Act-Observe-Reflect),
+    self-reflection gate, and external critic via OpenRouter API.
+
+io:
+  input_path: data/splits/test_v1.jsonl
+  output_path: results/metrics/s3_agentic_outputs.jsonl
+
+agent:
+  max_tool_rounds: 10
+  max_revisions: 2
+  coverage_min_threshold: 0.6
+  temperature: 0.1
+  enable_reflection: true
+
+retrieval:
+  enabled: true
+  backend: s3_vectors
+  vector_bucket_name: is469-genai-grp-project
+  index_name: rag-vector-2
+  region: ap-southeast-1
+  kb_dir: kb
+  embed_model: intfloat/multilingual-e5-small
+  top_k: 10
+  max_context_chars: 12000

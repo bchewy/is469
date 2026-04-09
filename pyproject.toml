@@ -20,6 +20,8 @@ dependencies = [
   "sentencepiece>=0.2.0",
   "protobuf>=4.24.4,<5.0.0",
   "sacrebleu>=2.5.0",
+  "unbabel-comet>=2.2.0",
+  "requests>=2.31.0",
 ]
 
 [tool.setuptools]
