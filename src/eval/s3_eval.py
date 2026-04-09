@@ -90,6 +90,17 @@ class EvalAssets:
     gold_error_by_id: dict[str, dict[str, Any]]
 
 
+def _is_valid_glossary_entry(source_term_en: str, approved_ja: str, usage_note: str) -> bool:
+    """Filter out corrupted/scraped rows — mirrors ToolExecutor._is_valid_glossary_entry."""
+    if not approved_ja:
+        return False
+    if len(approved_ja) > 30 or "Log" in approved_ja or "freq=" in usage_note:
+        return False
+    if any(c.isdigit() for c in approved_ja[:5]):
+        return False
+    return True
+
+
 def _load_glossary(kb_dir: Path) -> list[GlossaryEntry]:
     path = kb_dir / "glossary.csv"
     if not path.exists():
@@ -100,9 +111,10 @@ def _load_glossary(kb_dir: Path) -> list[GlossaryEntry]:
         for row in csv.DictReader(f):
             source_term_en = str(row.get("source_term_en", "")).strip()
             approved_ja = str(row.get("approved_ja", "")).strip()
+            usage_note = str(row.get("usage_note", "")).strip()
             forbidden_raw = str(row.get("forbidden_variants", "")).strip()
             forbidden = [x.strip() for x in forbidden_raw.split("|") if x.strip()]
-            if source_term_en and approved_ja:
+            if source_term_en and _is_valid_glossary_entry(source_term_en, approved_ja, usage_note):
                 entries.append(
                     GlossaryEntry(
                         source_term_en=source_term_en,

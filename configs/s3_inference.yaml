@@ -16,6 +16,7 @@ variant:
 io:
   input_path: data/splits/test_v1.jsonl
   output_path: /results/metrics/s3_outputs.jsonl
+  num_samples: 250
 
 agent:
   rewrite_retry_limit: 1
@@ -44,5 +45,5 @@ retrieval:
   kb_dir: /root/kb
   embed_model: intfloat/multilingual-e5-small
   top_k: 20
-  max_context_chars: 12000
+  max_context_chars: 16000
 

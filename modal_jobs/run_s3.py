@@ -1,7 +1,10 @@
 from __future__ import annotations
 
+import csv
 import json
 import os
+import re as _re
+import random as _random
 import time
 import sys
 import gc
@@ -48,6 +51,64 @@ artifacts_volume = modal.Volume.from_name("enja-model-artifacts", create_if_miss
 data_volume = modal.Volume.from_name("enja-data", create_if_missing=True)
 
 
+# ---------------------------------------------------------------------------
+# Helpers
+# ---------------------------------------------------------------------------
+
+_TERM_TOKEN_RE = _re.compile(r"[a-z0-9']+")
+
+
+def _load_glossary_terms(kb_dir: str) -> list[str]:
+    """Return a list of lowercased source_term_en values from glossary.csv."""
+    path = Path(kb_dir) / "glossary.csv"
+    if not path.exists():
+        return []
+    terms: list[str] = []
+    with path.open("r", encoding="utf-8-sig") as f:
+        header = f.readline().strip().split(",")
+        try:
+            idx = header.index("source_term_en")
+        except ValueError:
+            return []
+        for line in f:
+            parts = line.rstrip("\n").split(",")
+            if idx >= len(parts):
+                continue
+            term = parts[idx].strip().lower()
+            if term:
+                terms.append(term)
+    return terms
+
+
+def _prioritized_sample(
+    rows: list[dict],
+    *,
+    n: int,
+    glossary_terms: list[str],
+    seed: int = 42,
+) -> list[dict]:
+    """
+    Sample n rows, front-loading rows that contain at least one glossary term
+    in source_en. Mirrors the _split_rows_prioritized logic used by S2 eval
+    so that terminology_eval_samples are comparable across variants.
+    """
+    if len(rows) <= n:
+        return rows
+
+    strong = [
+        r for r in rows
+        if any(t in str(r.get("source_en", "")).lower() for t in glossary_terms)
+    ]
+    weak = [r for r in rows if r not in strong]
+
+    rng = _random.Random(seed)
+    rng.shuffle(strong)
+    rng.shuffle(weak)
+
+    ordered = strong + weak
+    return ordered[:n]
+
+
 def _load_yaml(path: str) -> dict:
     # Modal runs in /root by default, but configs may be passed in relative to repo.
     p = Path(path)
@@ -74,6 +135,7 @@ def _load_jsonl(path: str) -> list[dict]:
             rows.append(json.loads(line))
     return rows
 
+
 def _sync_s3_to_local(s3_uri: str, local_dir: str) -> str:
     """Download model files from S3 to a local directory using boto3."""
     import boto3
@@ -98,7 +160,6 @@ def _sync_s3_to_local(s3_uri: str, local_dir: str) -> str:
     for page in paginator.paginate(Bucket=bucket, Prefix=prefix):
         for obj in page.get("Contents", []):
             key = obj["Key"]
-            # Relative path within the prefix
             rel = key[len(prefix):].lstrip("/")
             if not rel:
                 continue
@@ -147,6 +208,10 @@ def _compute_translation_metrics(predictions: list[dict]) -> dict:
     }
 
 
+# ---------------------------------------------------------------------------
+# Modal function
+# ---------------------------------------------------------------------------
+
 @app.function(
     image=inference_image,
     gpu="A100",
@@ -161,8 +226,6 @@ def _compute_translation_metrics(predictions: list[dict]) -> dict:
     },
     secrets=[
         modal.Secret.from_name("enja-hf", required_keys=["HF_TOKEN"]),
-        # Account B: S3 Vectors API only (not the object S3 bucket for model weights).
-        # Omit this secret only when retrieval.enabled is false in config.
         modal.Secret.from_name("enja-s3-vectors"),
         modal.Secret.from_name("enja-s3-models"),
     ],
@@ -177,14 +240,14 @@ def run(config: str) -> dict:
 
     from src.agents.agentic_rag import detect_translation_error, translate_with_agentic_loop
     from src.eval.s3_eval import (
-    build_eval_assets,
-    build_retrieval_eval,
-    build_terminology_eval,
-    canonicalize_id,
-    compute_comet_metrics,
-    compute_error_id_metrics,
-    compute_retrieval_metrics,
-    compute_terminology_metrics,
+        build_eval_assets,
+        build_retrieval_eval,
+        build_terminology_eval,
+        canonicalize_id,
+        compute_comet_metrics,
+        compute_error_id_metrics,
+        compute_retrieval_metrics,
+        compute_terminology_metrics,
     )
     from src.retrieval.s3_vectors_rag import S3VectorsRAGRetriever
 
@@ -196,8 +259,8 @@ def run(config: str) -> dict:
 
     base_model_id = model_cfg.get("base_model_id", "Qwen/Qwen2.5-7B-Instruct")
     model_local_path = model_cfg.get("model_local_path")
-    model_s3_uri = model_cfg.get("model_s3_uri")  # e.g. s3://is469-genai-brianchew/models/...
-    adapter_s3_uri = model_cfg.get("adapter_s3_uri")  # e.g. s3://is469-genai-brianchew/adapters/...
+    model_s3_uri = model_cfg.get("model_s3_uri")
+    adapter_s3_uri = model_cfg.get("adapter_s3_uri")
 
     # Priority: S3 URI > local volume path > HuggingFace model ID
     if model_s3_uri:
@@ -208,15 +271,20 @@ def run(config: str) -> dict:
     else:
         model_path = base_model_id
 
-    adapter_dir = model_cfg.get("adapter_dir")  # expected LoRA adapter directory
+    adapter_dir = model_cfg.get("adapter_dir")
     if adapter_s3_uri:
         print(f"Downloading LoRA adapter from S3: {adapter_s3_uri}")
         adapter_dir = _sync_s3_to_local(adapter_s3_uri, "/tmp/adapters/qlora-v1")
 
-    adapter_dir = model_cfg.get("adapter_dir")  # expected LoRA adapter directory
+    adapter_dir = model_cfg.get("adapter_dir")
 
     input_path = _resolve_path(io_cfg.get("input_path", "data/splits/test_v1.jsonl"))
     output_path = io_cfg.get("output_path", "results/metrics/s3_outputs.jsonl")
+
+    # num_samples controls how many rows are evaluated. Rows containing glossary
+    # terms are front-loaded to match the terminology-prioritised sampling used
+    # by S2 eval, making cross-variant terminology_eval_samples comparable.
+    n_samples = int(io_cfg.get("num_samples", 250))
 
     gen_cfg = cfg.get("generation", {})
 
@@ -225,6 +293,7 @@ def run(config: str) -> dict:
     print(f"Adapter dir: {adapter_dir}")
     print(f"Input: {input_path}")
     print(f"Output: {output_path}")
+    print(f"num_samples: {n_samples}")
     print(
         "Generation: "
         f"do_sample={bool(gen_cfg.get('do_sample', False))} "
@@ -232,9 +301,26 @@ def run(config: str) -> dict:
         f"max_new_tokens={int(gen_cfg.get('max_new_tokens', 512))}"
     )
 
-    rows = _load_jsonl(input_path)
-    print(f"Loaded {len(rows)} rows")
-    eval_assets = build_eval_assets(rows, retrieval_cfg.get("kb_dir", "/root/kb"))
+    # Load all rows, then apply terminology-prioritised sampling.
+    kb_dir = retrieval_cfg.get("kb_dir", "/root/kb")
+    all_rows = _load_jsonl(input_path)
+    print(f"Loaded {len(all_rows)} rows from {input_path}")
+
+    glossary_terms = _load_glossary_terms(kb_dir)
+    print(f"Loaded {len(glossary_terms)} glossary terms from {kb_dir}/glossary.csv")
+
+    rows = _prioritized_sample(all_rows, n=n_samples, glossary_terms=glossary_terms, seed=42)
+    terminology_signal_count = sum(
+        1 for r in rows
+        if any(t in str(r.get("source_en", "")).lower() for t in glossary_terms)
+    )
+    print(
+        f"Sampled {len(rows)} rows "
+        f"({terminology_signal_count} with terminology signal, "
+        f"{len(rows) - terminology_signal_count} without)"
+    )
+
+    eval_assets = build_eval_assets(rows, kb_dir)
 
     tokenizer = AutoTokenizer.from_pretrained(
         model_path,
@@ -282,7 +368,7 @@ def run(config: str) -> dict:
         if not os.environ.get("VECTORS_AWS_ACCESS_KEY_ID"):
             raise ValueError(
                 "S3 Vectors retrieval requires VECTORS_AWS_* credentials (Modal secret enja-s3-vectors). "
-                "Or set retrieval.enabled: false. Object S3 (MODELS_*) is a different account and is not used here."
+                "Or set retrieval.enabled: false."
             )
         vbucket = retrieval_cfg.get("vector_bucket_name")
         vindex = retrieval_cfg.get("index_name")
@@ -294,14 +380,14 @@ def run(config: str) -> dict:
             vector_bucket_name=vbucket,
             index_name=vindex,
             region_name=retrieval_cfg.get("region", os.environ.get("AWS_DEFAULT_REGION", "ap-southeast-1")),
-            kb_dir=retrieval_cfg.get("kb_dir", "/root/kb"),
+            kb_dir=kb_dir,
             embed_model_name=retrieval_cfg.get("embed_model"),
             top_k=int(retrieval_cfg.get("top_k", 5)),
             max_context_chars=int(retrieval_cfg.get("max_context_chars", 12000)),
         )
         print(
             f"S3 Vectors RAG: bucket={vbucket} index={vindex} "
-            f"kb_dir={retrieval_cfg.get('kb_dir', '/root/kb')}"
+            f"kb_dir={kb_dir}"
         )
 
     predictions: list[dict] = []
@@ -469,4 +555,3 @@ def run(config: str) -> dict:
 @app.local_entrypoint()
 def main(config: str = "configs/s3_inference.yaml"):
     print(run.remote(config=config))
-

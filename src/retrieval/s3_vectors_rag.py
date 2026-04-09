@@ -57,8 +57,18 @@ def _chunk_text_from_record(record: dict[str, Any]) -> str:
 
 
 def format_context(chunks: list[RetrievedChunk], *, max_chars: int) -> str:
+    # Sort: glossary and TM entries first, then everything else
+    def priority(c: RetrievedChunk) -> int:
+        sf = c.source_file.lower()
+        if "glossary" in sf:
+            return 0
+        if "translation_memory" in sf:
+            return 1
+        return 2
+
+    sorted_chunks = sorted(chunks, key=priority)
     parts: list[str] = []
-    for ch in chunks:
+    for ch in sorted_chunks:
         label = f"[{ch.source_file} L{ch.source_line}]"
         parts.append(f"{label}\n{ch.text}")
     out = "\n\n---\n\n".join(parts)
