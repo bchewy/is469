@@ -103,6 +103,14 @@ ERROR_LABEL_CATEGORIES = [
 
 
 _EN_TOKEN_RE = re.compile(r"[a-z0-9']+")
+_TRANSLATION_CUE_RE = re.compile(
+    r"\b(translate|translation|in japanese|to japanese|japanese translation)\b",
+    re.IGNORECASE,
+)
+_EVAL_CUE_RE = re.compile(
+    r"\b(correct|incorrect|right|wrong|is this (translation )?correct|check|evaluate|proofread|revise|fix|improve)\b",
+    re.IGNORECASE,
+)
 _STOPWORDS = {
     "a", "an", "and", "are", "as", "at", "be", "but", "by", "can", "do", "for",
     "from", "has", "he", "her", "here", "his", "i", "if", "in", "is", "it", "its",
@@ -290,6 +298,63 @@ def _canonicalize_id(value: str) -> str:
 
 def _tokenize_en(text: str) -> set[str]:
     return {tok for tok in _EN_TOKEN_RE.findall(text.lower()) if tok not in _STOPWORDS}
+
+
+def _extract_english_payload(query: str) -> str:
+    """Extract the English segment from a translation-style query when possible."""
+    text = str(query or "").strip()
+    if not text:
+        return ""
+
+    lines = [ln.strip() for ln in text.splitlines() if ln.strip()]
+    for line in lines:
+        lowered = line.lower()
+        if lowered.startswith("english:") or lowered.startswith("en:"):
+            payload = line.split(":", 1)[1].strip().strip("\"'")
+            if payload:
+                return payload
+
+    if ":" in text:
+        head, tail = text.split(":", 1)
+        if _TRANSLATION_CUE_RE.search(head):
+            payload = tail.strip().strip("\"'")
+            if payload:
+                return payload
+
+    quoted = re.findall(r"[\"']([^\"'\n]{3,})[\"']", text)
+    if quoted:
+        return quoted[-1].strip()
+
+    cleaned = _TRANSLATION_CUE_RE.sub(" ", text)
+    cleaned = re.sub(r"\b(please|kindly|the following|into|to|in)\b", " ", cleaned, flags=re.IGNORECASE)
+    cleaned = re.sub(r"\s+", " ", cleaned).strip(" .,!?:;\t")
+    if cleaned and len(cleaned) >= 3:
+        return cleaned
+
+    return text
+
+
+def _infer_query_intent(query: str) -> tuple[str, str]:
+    """Return (intent, translation_source). intent is one of translation/evaluation/general."""
+    raw = str(query or "").strip()
+    if not raw:
+        return "general", ""
+
+    has_translation_cue = bool(_TRANSLATION_CUE_RE.search(raw))
+    has_eval_cue = bool(_EVAL_CUE_RE.search(raw))
+
+    if has_eval_cue:
+        return "evaluation", _extract_english_payload(raw)
+    if has_translation_cue:
+        source = _extract_english_payload(raw)
+        return "translation", source or raw
+
+    has_non_ascii = any(ord(ch) > 127 for ch in raw)
+    if not has_non_ascii:
+        # If query looks like plain English text, default to translation.
+        return "translation", raw
+
+    return "general", ""
 
 
 def _extract_candidate_english_texts(retrieved_texts: list[str]) -> list[str]:
@@ -776,7 +841,7 @@ class AdvancedRAGPipeline:
         self.rerank_top_n = rerank_top_n if rerank_top_n is not None else int(os.environ.get("RERANK_TOP_N_DEFAULT", "6"))
         self.enable_rerank = _env_enabled("RAG_ENABLE_RERANK", default=True)
         self.answer_model_path = os.environ.get(
-            "ANSWER_MODEL_PATH", os.environ.get("ANSWER_BASE_MODEL_ID", "Qwen/Qwen2.5-7B-Instruct")
+            "ANSWER_MODEL_PATH", os.environ.get("ANSWER_BASE_MODEL_ID", "Qwen/Qwen2.5-0.5B-Instruct")
         )
         self.answer_max_new_tokens = int(os.environ.get("ANSWER_MAX_NEW_TOKENS", "128"))
         self.answer_temperature = float(os.environ.get("ANSWER_TEMPERATURE", "0.0"))
@@ -1214,16 +1279,38 @@ class AdvancedRAGPipeline:
 
         return self._answer_model, self._answer_tokenizer
 
-    def _answer_query(self, query: str, context: str) -> str:
+    def _answer_query(
+        self,
+        query: str,
+        context: str,
+        *,
+        intent: str = "general",
+        translation_source: str = "",
+    ) -> str:
         print("[answer-query] Generating answer from model.")
         model, tokenizer = self._load_answer_model()
         import torch
 
-        user_prompt = (
-            f"Retrieved context:\n{context}\n\n"
-            f"User question:\n{query}\n\n"
-            "Answer the user's question directly."
-        )
+        if intent == "translation":
+            source_text = (translation_source or query).strip()
+            user_prompt = (
+                f"Retrieved context:\n{context}\n\n"
+                f"Translate this English text into natural Japanese:\n{source_text}\n\n"
+                "Output only the Japanese translation."
+            )
+        elif intent == "evaluation":
+            user_prompt = (
+                f"Retrieved context:\n{context}\n\n"
+                f"User question:\n{query}\n\n"
+                "The user is explicitly asking for evaluation/revision. "
+                "Answer directly and briefly."
+            )
+        else:
+            user_prompt = (
+                f"Retrieved context:\n{context}\n\n"
+                f"User question:\n{query}\n\n"
+                "Answer the user's question directly."
+            )
         messages = [
             {"role": "system", "content": SYSTEM_ANSWER_PROMPT},
             {"role": "user", "content": user_prompt},
@@ -1299,12 +1386,15 @@ class AdvancedRAGPipeline:
         return scored_chunks
 
     def run(self, query: str) -> RerankedResult:
+        intent, translation_source = _infer_query_intent(query)
+        retrieval_query = translation_source if intent == "translation" and translation_source else query
+
         t0 = time.perf_counter()
-        retrieved = self.retrieve_weighted_stratified(query)
+        retrieved = self.retrieve_weighted_stratified(retrieval_query)
         t1 = time.perf_counter()
         print("Time to retrieve: {:.2f} seconds".format(t1 - t0))
         if self.enable_rerank:
-            reranked = self.rerank(query, retrieved)
+            reranked = self.rerank(retrieval_query, retrieved)
             t2 = time.perf_counter()
             print("Time to rerank: {:.2f} seconds".format(t2 - t1))
         else:
@@ -1325,7 +1415,12 @@ class AdvancedRAGPipeline:
         context = format_context(context_chunks, max_chars=context_max_chars)
         t_context = time.perf_counter()
         print("Time to format context: {:.2f} seconds".format(t_context - t2))
-        answer = self._answer_query(query, context)
+        answer = self._answer_query(
+            query,
+            context,
+            intent=intent,
+            translation_source=translation_source,
+        )
         t_answer = time.perf_counter()
         print("Time to generate answer: {:.2f} seconds".format(t_answer - t_context))
 
