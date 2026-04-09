@@ -4,9 +4,9 @@ project:
   seed: 42
 
 model:
-  base_model_id: Qwen/Qwen2.5-0.5B-Instruct
-  model_local_path: models/qwen-qwen2.5-0.5b-instruct
-  adapter_dir: models/adapter-translation-qwen25-0p5b/final
+  base_model_id: Qwen/Qwen2.5-7B-Instruct
+  model_local_path: models/qwen-qwen2.5-7b-instruct
+  adapter_dir: models/adapter-translation-v3/final
 
 variant:
   id: s1

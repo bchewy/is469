@@ -1,0 +1,22 @@
+project:
+  name: en-ja-translation
+  domain: general_mixed
+  seed: 42
+
+model:
+  base_model_id: Qwen/Qwen2.5-7B-Instruct
+  model_local_path: models/qwen-qwen2.5-7b-instruct
+  adapter_dir: models/adapter-translation-v3/final
+
+variant:
+  id: s1
+  description: QLoRA fine-tuned translation smoke test
+
+generation:
+  num_beams: 5
+  max_new_tokens: 512
+  batch_size: 10
+
+io:
+  input_path: data/splits/test_v1_smoke_10.jsonl
+  output_path: results/metrics/s1_v3_smoke_outputs.jsonl
