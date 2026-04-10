@@ -15,6 +15,8 @@ models/
 results/
 !results/
 !results/metrics/
+results/logs/
+results/qualitative_examples/
 results/metrics/*
 !results/metrics/advanced_rag_pipeline_outputs.modal.2250.jsonl
 !results/metrics/advanced_rag_pipeline_metrics.modal.2250.json
@@ -22,3 +24,4 @@ results/metrics/*
 *.safetensors
 *.pdf
 primeintellect/
+.vercel
