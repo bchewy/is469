@@ -1,0 +1,154 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Error Detection Sections</title>
+  <style>
+    body {
+      font-family: Arial, Helvetica, sans-serif;
+      line-height: 1.55;
+      color: #111;
+      max-width: 900px;
+      margin: 40px auto;
+      padding: 0 24px 48px;
+      background: #fff;
+    }
+    h2, h3 {
+      margin-top: 28px;
+      margin-bottom: 10px;
+    }
+    p {
+      margin: 10px 0;
+    }
+    ul {
+      margin: 10px 0 14px 22px;
+    }
+    li {
+      margin: 6px 0;
+    }
+    .box {
+      border: 1px solid #ccc;
+      padding: 14px 16px;
+      margin: 14px 0 18px;
+    }
+  </style>
+</head>
+<body>
+  <h2>2.5.3 Error Identification Module</h2>
+  <p>
+    The error identification module is used to determine whether a generated
+    Japanese translation contains a meaningful translation problem and, if so,
+    what type of problem it is. Rather than assigning a single overall quality
+    label, the system represents error as a structured record consisting of four
+    fields: <strong>has_error</strong>, <strong>severity</strong>,
+    <strong>categories</strong>, and <strong>rationale</strong>.
+  </p>
+  <p>
+    Errors are classified using five MQM-style categories:
+    <strong>Terminology</strong>, <strong>Accuracy</strong>,
+    <strong>Fluency/Grammar</strong>, <strong>Style/Register</strong>, and
+    <strong>Locale/Formatting</strong>. This structure is useful because it
+    captures not only whether a translation is wrong, but also why it is wrong.
+    In practice, this allows the system to distinguish between, for example, a
+    mistranslated term, an unnatural Japanese sentence, or a formatting mistake
+    such as incorrect punctuation.
+  </p>
+  <p>
+    The role of error identification differs across the system variants. S0 and
+    S1 do not include a dedicated error-classification module and are therefore
+    evaluated mainly with translation-quality and terminology metrics. S2 includes
+    only a weak automatic error proxy based on prediction-versus-reference
+    mismatch. S3 is the only variant with a true structured error classifier,
+    which predicts whether an error exists, how severe it is, which categories it
+    belongs to, and a short justification. This output is then used both for
+    evaluation and for directing the revision loop inside the agentic pipeline.
+  </p>
+
+  <h2>3.3 Error Annotation by Gemini</h2>
+  <p>
+    To create a gold reference for error evaluation, we built a labelled error
+    dataset using Gemini as an annotation model. A subset of 500 English-Japanese
+    sentence pairs was first translated automatically to produce candidate system
+    outputs. Gemini was then used as an LLM-as-judge to assess each translation
+    against the English source and assign structured error labels.
+  </p>
+  <p>
+    For each annotated record, Gemini produced:
+  </p>
+  <ul>
+    <li><strong>has_error</strong>: whether the translation contains an error</li>
+    <li><strong>severity</strong>: none, minor, or major</li>
+    <li><strong>categories</strong>: one or more MQM-style error categories</li>
+    <li><strong>rationale</strong>: a short explanation of the judgement</li>
+  </ul>
+  <p>
+    The resulting annotations were saved to
+    <strong>gemini_annotated_results.jsonl</strong> and used as the gold error
+    labels during evaluation. In other words, this file acts as the reference
+    truth against which predicted error labels from the translation pipelines are
+    compared.
+  </p>
+
+  <h2>4.4 Error Detection</h2>
+  <p>
+    Error detection is evaluated by treating the system’s predicted error label as
+    a classification output and comparing it against the gold label from the
+    Gemini-annotated dataset. This evaluation only applies when both a
+    <strong>gold_error_label</strong> and a predicted
+    <strong>error_check</strong> are present for the same row. As a result, error
+    detection metrics are meaningful primarily for S2 and S3, and do not apply to
+    S0 and S1 in the plain baseline setting.
+  </p>
+  <p>
+    Two metrics are used. <strong>Binary F1</strong> measures whether the system
+    correctly identifies the presence or absence of an error. This answers the
+    simplest question: did the system correctly decide whether the translation was
+    acceptable or problematic? <strong>Category Macro F1</strong> measures how
+    well the system identifies the type of error across the five MQM-style
+    categories. This is more diagnostic, because it reveals whether the system can
+    tell the difference between terminology problems, meaning distortions,
+    fluency issues, register errors, and locale-formatting mistakes.
+  </p>
+  <p>
+    In this project, the four variants handle error detection differently:
+  </p>
+  <ul>
+    <li>
+      <strong>S0 and S1:</strong> no dedicated error classifier is used, so
+      error-F1 metrics are not reported.
+    </li>
+    <li>
+      <strong>S2:</strong> a simple automatic heuristic is used. If the generated
+      Japanese output differs from the reference after normalization, the system
+      marks the translation as having an error. This gives a rough binary signal,
+      but it does not provide reliable category classification.
+    </li>
+    <li>
+      <strong>S3:</strong> an explicit LLM-based error classifier is used. It
+      reads the English source, the Japanese candidate, and the retrieved context,
+      then predicts structured error JSON containing
+      <strong>has_error</strong>, <strong>severity</strong>,
+      <strong>categories</strong>, and <strong>rationale</strong>.
+    </li>
+  </ul>
+  <p>
+    This distinction is important when interpreting the results. A low error F1 in
+    S2 does not necessarily mean the translation itself is poor; it may simply
+    reflect the fact that S2 uses a weak proxy for error detection. By contrast,
+    S3’s error metrics are more informative because they come from a genuine
+    structured classifier rather than a simple output mismatch rule.
+  </p>
+
+  <div class="box">
+    <p><strong>Plain-English Summary</strong></p>
+    <p>
+      The project defines error using a fixed gold annotation file and then asks
+      each system to produce its own predicted error label. S0 and S1 do not really
+      do this, S2 does it weakly using a mismatch heuristic, and S3 does it
+      properly using an LLM-based classifier. The predicted label is then compared
+      against the gold label to calculate Binary F1 and Category Macro F1.
+    </p>
+  </div>
+</body>
+</html>

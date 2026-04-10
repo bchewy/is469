@@ -1,0 +1,291 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>S0 to S1 Report Sections</title>
+  <style>
+    body {
+      font-family: Arial, Helvetica, sans-serif;
+      line-height: 1.5;
+      color: #111;
+      max-width: 900px;
+      margin: 40px auto;
+      padding: 0 24px 48px;
+      background: #fff;
+    }
+    h2, h3 {
+      margin-top: 28px;
+      margin-bottom: 10px;
+    }
+    p {
+      margin: 10px 0;
+    }
+    .example {
+      border: 1px solid #ccc;
+      padding: 14px 16px;
+      margin: 14px 0 18px;
+    }
+    .example p {
+      margin: 6px 0;
+    }
+  </style>
+</head>
+<body>
+  <h2>2.1 S0: Prompt-Only Baseline</h2>
+  <p>
+    S0 is the baseline translation system built directly on Qwen2.5-0.5B-Instruct
+    without any task-specific adaptation. For each input, the model receives a
+    fixed translation prompt together with the English source sentence and
+    generates a Japanese translation using a shared decoding configuration.
+  </p>
+  <p>
+    This baseline is important because it establishes how far a small
+    instruction-tuned model can go with prompting alone before any supervised
+    adaptation is introduced. In other words, S0 serves as the control condition
+    for the later fine-tuning experiments. Any improvements observed in S1 can
+    therefore be attributed to task-specific adaptation rather than to changes in
+    the underlying task or inference setup.
+  </p>
+
+  <h2>2.2 S1: Fine-Tuned Model with QLoRA Adapters</h2>
+  <p>
+    To build S1, we applied supervised fine-tuning to Qwen/Qwen2.5-0.5B-Instruct
+    using QLoRA on the English-to-Japanese translation data in
+    data/splits/train_v2.jsonl, with data/splits/dev_v2.jsonl used for validation
+    and model selection. Each training example was formatted as a chat-style
+    sample consisting of a fixed system instruction, the English source sentence
+    as the user message, and the gold Japanese translation as the assistant
+    target. This preserved the same task definition as S0 while allowing the
+    model to adapt more closely to the translation objective.
+  </p>
+  <p>
+    The model was loaded in 4-bit quantized form using NF4 quantization with
+    bfloat16 compute, and LoRA adapters were trained instead of fully updating the
+    base model. Adapters were attached to the main attention and feed-forward
+    projection layers (q_proj, k_proj, v_proj, o_proj, gate_proj, up_proj,
+    down_proj). In the final stable rerun, we used LoRA rank 16, alpha 16,
+    dropout 0.05, learning rate 5e-6, batch size 8, gradient accumulation 4,
+    gradient checkpointing enabled, and maximum sequence length 2048. Training was
+    capped at 400 steps with validation every 100 steps, gradient clipping at 0.1,
+    and early stopping enabled to avoid the late instability observed in longer
+    0.5B runs.
+  </p>
+  <p>
+    After training, the final adapter was saved separately from the base model and
+    loaded at inference time to create S1. This means the S0 versus S1 comparison
+    remained controlled: both variants used the same base model and translation
+    task, and the only substantive difference was the addition of the learned
+    QLoRA adapter in S1.
+  </p>
+
+  <h2>3.1 Dataset Setup for S0 and S1</h2>
+  <p>
+    The S0-S1 experiment did not train directly on a single raw file such as
+    eng-jap.tsv. Instead, the fine-tuning dataset was built from a mixed-source
+    English-to-Japanese parallel corpus collected through the repository’s data
+    pipeline. Public EN-JA sentence pairs were gathered from Hugging Face Tatoeba,
+    filtered OPUS-100, and JParaCrawl, then normalized, deduplicated,
+    quality-filtered, and split deterministically into train and validation files.
+  </p>
+  <p>
+    The final S1 fine-tuning rerun used data/splits/train_v2.jsonl for training
+    and data/splits/dev_v2.jsonl for validation. The training split contained
+    24,000 rows in total: 18,000 from JParaCrawl, 4,000 from Hugging Face
+    Tatoeba, and 2,000 from filtered OPUS-100. The validation split contained
+    2,668 rows: 2,000 from JParaCrawl, 445 from Hugging Face Tatoeba, and 223
+    from filtered OPUS-100. The final held-out evaluation used
+    data/splits/test_v1.jsonl.
+  </p>
+  <p>
+    Each row contained an English source sentence and its Japanese reference
+    translation. During S1 training, these pairs were converted into chat-style
+    supervision examples with a fixed system instruction, the English sentence as
+    the user turn, and the Japanese translation as the assistant turn. S0 itself
+    does not use training data, because it is the prompt-only baseline. The
+    dataset setup therefore applies primarily to S1.
+  </p>
+
+  <h2>2.5.3 Error Identification Module</h2>
+  <p>
+    The error identification module is used to determine whether a generated
+    Japanese translation contains a meaningful translation problem and, if so,
+    what type of problem it is. Rather than assigning a single overall quality
+    label, the system represents error as a structured record consisting of four
+    fields: <strong>has_error</strong>, <strong>severity</strong>,
+    <strong>categories</strong>, and <strong>rationale</strong>.
+  </p>
+  <p>
+    Errors are classified using five MQM-style categories:
+    <strong>Terminology</strong>, <strong>Accuracy</strong>,
+    <strong>Fluency/Grammar</strong>, <strong>Style/Register</strong>, and
+    <strong>Locale/Formatting</strong>. This structure is useful because it
+    captures not only whether a translation is wrong, but also why it is wrong.
+    In practice, this allows the system to distinguish between a mistranslated
+    term, an unnatural Japanese sentence, a meaning distortion, or a formatting
+    issue such as incorrect punctuation.
+  </p>
+  <p>
+    The role of error identification differs across the variants. S0 and S1 do
+    not include a dedicated error-classification module and are therefore
+    evaluated mainly with translation-quality and terminology metrics. S2 includes
+    only a weak automatic error proxy based on prediction-versus-reference
+    mismatch. S3 is the only variant with a true structured error classifier,
+    which predicts whether an error exists, how severe it is, which categories it
+    belongs to, and a short justification. This output is then used both for
+    evaluation and for directing the revision loop inside the agentic pipeline.
+  </p>
+
+  <h2>3.3 Error Annotation by Gemini</h2>
+  <p>
+    To create a gold reference for error evaluation, we built a labelled error
+    dataset using Gemini as an annotation model. A subset of 500 English-Japanese
+    sentence pairs was first translated automatically to produce candidate system
+    outputs. Gemini was then used as an LLM-as-judge to assess each translation
+    against the English source and assign structured error labels.
+  </p>
+  <p>
+    For each annotated record, Gemini produced:
+  </p>
+  <ul>
+    <li><strong>has_error</strong>: whether the translation contains an error</li>
+    <li><strong>severity</strong>: none, minor, or major</li>
+    <li><strong>categories</strong>: one or more MQM-style error categories</li>
+    <li><strong>rationale</strong>: a short explanation of the judgement</li>
+  </ul>
+  <p>
+    The resulting annotations were saved to
+    <strong>gemini_annotated_results.jsonl</strong> and used as the gold error
+    labels during evaluation. In other words, this file acts as the reference
+    truth against which predicted error labels from the translation pipelines are
+    compared.
+  </p>
+
+  <h2>4.4 Error Detection</h2>
+  <p>
+    Error detection is evaluated by treating the system’s predicted error label as
+    a classification output and comparing it against the gold label from the
+    Gemini-annotated dataset. This evaluation only applies when both a
+    <strong>gold_error_label</strong> and a predicted
+    <strong>error_check</strong> are present for the same row. As a result, error
+    detection metrics are meaningful primarily for S2 and S3, and do not apply to
+    S0 and S1 in the plain baseline setting.
+  </p>
+  <p>
+    Two metrics are used. <strong>Binary F1</strong> measures whether the system
+    correctly identifies the presence or absence of an error. This answers the
+    simplest question: did the system correctly decide whether the translation was
+    acceptable or problematic? <strong>Category Macro F1</strong> measures how
+    well the system identifies the type of error across the five MQM-style
+    categories. This is more diagnostic, because it reveals whether the system can
+    distinguish between terminology problems, meaning distortions, fluency issues,
+    register errors, and locale-formatting mistakes.
+  </p>
+  <p>
+    In this project, the four variants handle error detection differently:
+  </p>
+  <ul>
+    <li>
+      <strong>S0 and S1:</strong> no dedicated error classifier is used, so
+      error-F1 metrics are not reported.
+    </li>
+    <li>
+      <strong>S2:</strong> a simple automatic heuristic is used. If the generated
+      Japanese output differs from the reference after normalization, the system
+      marks the translation as having an error. This gives a rough binary signal,
+      but it does not provide reliable category classification.
+    </li>
+    <li>
+      <strong>S3:</strong> an explicit LLM-based error classifier is used. It
+      reads the English source, the Japanese candidate, and the retrieved context,
+      then predicts structured error JSON containing
+      <strong>has_error</strong>, <strong>severity</strong>,
+      <strong>categories</strong>, and <strong>rationale</strong>.
+    </li>
+  </ul>
+  <p>
+    This distinction is important when interpreting the results. A low error F1 in
+    S2 does not necessarily mean the translation itself is poor; it may simply
+    reflect the fact that S2 uses a weak proxy for error detection. By contrast,
+    S3’s error metrics are more informative because they come from a genuine
+    structured classifier rather than a simple output mismatch rule.
+  </p>
+
+  <h2>5.1 Quantitative Results for S0 and S1</h2>
+  <p>
+    Within the non-RAG setting, S1 remained largely flat relative to S0. The
+    fine-tuned model showed only small improvements in overlap-based and learned
+    translation metrics, with BLEU increasing from 16.29 to 17.64, chrF++ from
+    12.76 to 12.91, and COMET from 0.7291 to 0.7303. These changes indicate that
+    task-specific adaptation did alter model behaviour, but the gains were modest
+    rather than transformative.
+  </p>
+  <p>
+    In practical terms, the fine-tuning stage did not produce a decisive overall
+    improvement. Translation quality changed slightly, but not enough to claim that
+    QLoRA adaptation alone substantially improved English-to-Japanese localisation
+    quality in this setup.
+  </p>
+
+  <h2>5.2.1 S0 Base vs S1 Fine-Tuned</h2>
+  <p>
+    Although the goal of S1 was to improve translation quality through
+    task-specific adaptation, the final results were mostly flat relative to S0.
+    The fine-tuned model showed only marginal metric gains overall, suggesting
+    that the adapter learned some translation-specific behaviour but not strongly
+    enough to produce a clear performance step-up on the held-out evaluation set.
+  </p>
+  <p>
+    In qualitative terms, S1 is best understood as a modest stabilisation step
+    rather than a decisive improvement. It appears to reduce some poor baseline
+    behaviours in individual cases, especially prompt leakage and meta-style
+    contamination, but the effect is not strong or consistent enough to conclude
+    that fine-tuning alone substantially improved the system.
+  </p>
+
+  <div class="example">
+    <p><strong>Source (EN):</strong> The yacht was sabotaged.</p>
+    <p><strong>Reference (JA):</strong> ヨットは破壊工作を受けた。</p>
+    <p><strong>S0 Output:</strong> This translation preserves the original meaning and tone. A natural Japanese translation would be: 「ヨットは破壊工作を受けた。」</p>
+    <p><strong>S1 Output:</strong> ヨットは破壊工作を受けた。</p>
+    <p>
+      <strong>Analysis:</strong> This example illustrates the main local
+      improvement observed in S1. The prompt-only baseline, S0, does not return a
+      clean Japanese translation directly, but instead produces English
+      meta-commentary before the answer. In contrast, S1 outputs the translation
+      directly in Japanese without prompt leakage. Examples like this help explain
+      why the fine-tuned model can improve some pathological baseline cases even
+      when the aggregate gains remain small.
+    </p>
+  </div>
+
+  <h2>8. Reflections on S0 and S1</h2>
+  <p>
+    The S0 to S1 comparison suggests that fine-tuning alone was not the main
+    driver of improvement in this project. While the QLoRA adapter did produce
+    some localized gains, especially in reducing prompt contamination and making
+    outputs more direct, the overall quantitative change remained modest. This
+    indicates that the 0.5B model can be adapted to the translation task, but that
+    the headroom for large gains under this setup is limited.
+  </p>
+  <p>
+    A further practical lesson was that longer 0.5B runs were not always better.
+    In several experiments, early checkpoints looked healthy while later
+    checkpoints became numerically unstable or degraded in quality. As a result,
+    shorter and more conservative training runs proved more reliable than simply
+    extending training duration.
+  </p>
+
+  <h2>9. Conclusion for S0 and S1</h2>
+  <p>
+    In summary, the S0 and S1 results show that prompt-only translation with
+    Qwen2.5-0.5B-Instruct already provides a reasonable baseline, and that QLoRA
+    fine-tuning can slightly stabilise output behaviour. However, the improvement
+    from S0 to S1 was small and inconsistent, so fine-tuning alone did not produce
+    a clear advance in translation quality. The main value of the S1 experiment is
+    therefore diagnostic: it shows that model adaptation changes behaviour, but
+    that more substantial gains likely require stronger retrieval and agentic
+    control rather than parameter-efficient fine-tuning alone.
+  </p>
+</body>
+</html>
