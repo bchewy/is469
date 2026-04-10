@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import csv
 import json
+import os
 import re
 from dataclasses import dataclass
 from pathlib import Path
@@ -297,6 +298,37 @@ TOOL_DEFINITIONS: list[dict[str, Any]] = [
             },
         },
     },
+    {
+        "type": "function",
+        "function": {
+            "name": "web_search",
+            "description": (
+                "Search the web to verify translation choices, find real-world "
+                "Japanese usage examples, or check cultural context. Use this when "
+                "the glossary doesn't have a term, or when you want to verify that "
+                "your translation sounds natural in real Japanese usage. "
+                "Powered by Brave Search API."
+            ),
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "query": {
+                        "type": "string",
+                        "description": (
+                            "Search query — use Japanese for finding usage examples, "
+                            "English for finding translation references "
+                            "(e.g. '暗証番号 vs パスワード 違い' or 'two-factor authentication Japanese translation')"
+                        ),
+                    },
+                    "count": {
+                        "type": "integer",
+                        "description": "Number of results (default 3, max 5)",
+                    },
+                },
+                "required": ["query"],
+            },
+        },
+    },
 ]
 
 
@@ -311,6 +343,7 @@ class ToolExecutor:
         retriever: Any | None = None,
         tm_path: str | Path | None = None,
         grammar_path: str | Path | None = None,
+        brave_api_key: str | None = None,
     ) -> None:
         glossary_path = Path(glossary_path)
         self.glossary = self._load_glossary(glossary_path)
@@ -321,6 +354,7 @@ class ToolExecutor:
         if grammar_path is None:
             grammar_path = glossary_path.parent / "grammar_chunks.jsonl"
         self.grammar = _load_grammar(Path(grammar_path))
+        self.brave_api_key = brave_api_key or os.environ.get("BRAVE_API_KEY", "")
         self.call_log: list[dict] = []
 
     @property
@@ -332,6 +366,8 @@ class ToolExecutor:
             names.append("lookup_grammar_pattern")
         if self.retriever is not None:
             names.append("search_knowledge_base")
+        if self.brave_api_key:
+            names.append("web_search")
         return names
 
     def get_tool_definitions(self) -> list[dict[str, Any]]:
@@ -450,6 +486,10 @@ class ToolExecutor:
             )
         if name == "validate_locale":
             return self._validate_locale(arguments["text"])
+        if name == "web_search":
+            return self._web_search(
+                arguments["query"], arguments.get("count", 3)
+            )
         return json.dumps({"error": f"Unknown tool: {name}"})
 
     def _lookup_glossary(self, term: str) -> str:
@@ -640,6 +680,55 @@ class ToolExecutor:
             }
         )
         return result
+
+    def _web_search(self, query: str, count: int = 3) -> str:
+        """Search the web via Brave Search API for translation verification."""
+        if not self.brave_api_key:
+            self.call_log.append(
+                {"tool": "web_search", "query": query, "error": "no_api_key"}
+            )
+            return json.dumps(
+                {"error": "Web search unavailable (BRAVE_API_KEY not configured)"}
+            )
+
+        import requests
+
+        count = min(max(1, int(count)), 5)
+        try:
+            resp = requests.get(
+                "https://api.search.brave.com/res/v1/web/search",
+                headers={
+                    "Accept": "application/json",
+                    "Accept-Encoding": "gzip",
+                    "X-Subscription-Token": self.brave_api_key,
+                },
+                params={"q": query, "count": count},
+                timeout=10,
+            )
+            resp.raise_for_status()
+            data = resp.json()
+        except Exception as exc:
+            self.call_log.append(
+                {"tool": "web_search", "query": query, "error": str(exc)}
+            )
+            return json.dumps({"error": f"Brave Search failed: {exc}"})
+
+        results = []
+        for item in (data.get("web", {}).get("results", []))[:count]:
+            results.append(
+                {
+                    "title": item.get("title", ""),
+                    "url": item.get("url", ""),
+                    "description": item.get("description", "")[:300],
+                }
+            )
+
+        self.call_log.append(
+            {"tool": "web_search", "query": query, "count": len(results)}
+        )
+        return json.dumps(
+            {"results": results, "count": len(results)}, ensure_ascii=False
+        )
 
     def reset_log(self) -> None:
         self.call_log = []
