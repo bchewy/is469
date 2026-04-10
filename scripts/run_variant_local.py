@@ -123,8 +123,12 @@ def run(variant: str, config: str) -> dict:
 
     input_path = _resolve_repo_path(io_cfg.get("input_path", "data/splits/test_v1.jsonl"))
     output_path = _resolve_repo_path(io_cfg.get("output_path", f"results/metrics/{variant}_outputs.jsonl"))
-    metrics_path = REPO_ROOT / "results" / "metrics" / f"{variant}_metrics.json"
-    qual_path = REPO_ROOT / "results" / "qualitative_examples" / f"{variant}.json"
+    metrics_path = _resolve_repo_path(
+        io_cfg.get("metrics_path", f"results/metrics/{variant}_metrics.json")
+    )
+    qual_path = _resolve_repo_path(
+        io_cfg.get("qualitative_path", f"results/qualitative_examples/{variant}.json")
+    )
     glossary_path = _resolve_repo_path(io_cfg.get("glossary_path", "kb/glossary.csv"))
 
     adapter_dir_str = model_cfg.get("adapter_dir", "models/adapter-translation-qwen25-0p5b/final")

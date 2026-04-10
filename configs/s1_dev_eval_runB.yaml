@@ -1,0 +1,24 @@
+project:
+  name: en-ja-translation
+  domain: general_mixed
+  seed: 42
+
+model:
+  base_model_id: Qwen/Qwen2.5-0.5B-Instruct
+  model_local_path: models/qwen-qwen2.5-0.5b-instruct
+  adapter_dir: models/adapter-translation-qwen25-0p5b-runB/final
+
+variant:
+  id: s1
+  description: QLoRA fine-tuned translation on dev split
+
+generation:
+  num_beams: 1
+  max_new_tokens: 192
+  batch_size: 64
+
+io:
+  input_path: data/splits/dev_v2.jsonl
+  output_path: results/metrics/s1_runB_dev_outputs.jsonl
+  metrics_path: results/metrics/s1_runB_dev_metrics.json
+  qualitative_path: results/qualitative_examples/s1_runB_dev.json

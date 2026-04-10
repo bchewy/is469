@@ -9,6 +9,7 @@ Usage:
 from __future__ import annotations
 
 import json
+import math
 import os
 import time
 from pathlib import Path
@@ -22,6 +23,7 @@ from transformers import (
     AutoTokenizer,
     BitsAndBytesConfig,
     EarlyStoppingCallback,
+    TrainerCallback,
 )
 from trl import SFTTrainer, SFTConfig
 
@@ -30,6 +32,41 @@ SYSTEM_PROMPT = (
     "Translate the following English text into natural, fluent Japanese. "
     "Preserve the original meaning and tone."
 )
+
+
+class StopOnNonFiniteMetricsCallback(TrainerCallback):
+    """Fail fast when training or eval metrics become non-finite."""
+
+    watched_keys = {"loss", "eval_loss", "grad_norm", "entropy", "eval_entropy"}
+
+    @staticmethod
+    def _is_non_finite(value) -> bool:
+        if value is None:
+            return False
+        if isinstance(value, torch.Tensor):
+            try:
+                value = value.item()
+            except Exception:
+                return False
+        if isinstance(value, (int, float)):
+            return not math.isfinite(float(value))
+        return False
+
+    def _check(self, metrics: dict | None, control):
+        if not metrics:
+            return control
+        bad = [key for key in self.watched_keys if self._is_non_finite(metrics.get(key))]
+        if bad:
+            print(f"Non-finite metrics detected for {bad}. Stopping training to preserve the best checkpoint.")
+            control.should_training_stop = True
+            control.should_save = True
+        return control
+
+    def on_log(self, args, state, control, logs=None, **kwargs):
+        return self._check(logs, control)
+
+    def on_evaluate(self, args, state, control, metrics=None, **kwargs):
+        return self._check(metrics, control)
 
 
 def load_yaml(path: str) -> dict:
@@ -98,6 +135,10 @@ def main():
     )
     dataloader_num_workers = int(train_cfg.get("dataloader_num_workers", 0))
     allow_tf32 = bool(train_cfg.get("allow_tf32", True))
+    chat_template_path = train_cfg.get("chat_template_path")
+    assistant_only_loss = bool(train_cfg.get("assistant_only_loss", False))
+    eos_token = train_cfg.get("eos_token")
+    pad_token = train_cfg.get("pad_token")
     optim = train_cfg.get("optim", "adamw_torch_fused")
     logging_nan_inf_filter = bool(train_cfg.get("logging_nan_inf_filter", True))
     warmup_ratio = float(train_cfg.get("warmup_ratio", 0.1))
@@ -195,9 +236,13 @@ def main():
         dataloader_num_workers=dataloader_num_workers,
         tf32=allow_tf32,
         logging_nan_inf_filter=logging_nan_inf_filter,
+        chat_template_path=chat_template_path,
+        assistant_only_loss=assistant_only_loss,
+        eos_token=eos_token,
+        pad_token=pad_token,
     )
 
-    callbacks = []
+    callbacks = [StopOnNonFiniteMetricsCallback()]
     if use_early_stopping:
         callbacks.append(EarlyStoppingCallback(early_stopping_patience=early_stopping_patience))
 

@@ -13,9 +13,9 @@ variant:
   description: QLoRA fine-tuned translation
 
 generation:
-  num_beams: 5
-  max_new_tokens: 512
-  batch_size: 16
+  num_beams: 1
+  max_new_tokens: 192
+  batch_size: 64
 
 io:
   input_path: data/splits/test_v1.jsonl

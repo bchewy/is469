@@ -9,7 +9,7 @@ model:
 
 variant:
   id: s0
-  description: Prompt-only baseline
+  description: Prompt-only baseline on dev split
 
 generation:
   num_beams: 1
@@ -17,5 +17,7 @@ generation:
   batch_size: 64
 
 io:
-  input_path: data/splits/test_v1.jsonl
-  output_path: results/metrics/s0_outputs.jsonl
+  input_path: data/splits/dev_v2.jsonl
+  output_path: results/metrics/s0_dev_outputs.jsonl
+  metrics_path: results/metrics/s0_dev_metrics.json
+  qualitative_path: results/qualitative_examples/s0_dev.json

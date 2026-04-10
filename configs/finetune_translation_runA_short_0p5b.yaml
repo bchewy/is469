@@ -1,0 +1,32 @@
+project:
+  seed: 42
+
+model:
+  base_model_id: Qwen/Qwen2.5-0.5B-Instruct
+  model_local_path: models/qwen-qwen2.5-0.5b-instruct
+  train_mode: qlora
+  output_adapter_dir: models/adapter-translation-qwen25-0p5b-runA-short
+
+training:
+  epochs: 1
+  max_steps: 300
+  lr: 5.0e-6
+  lora_rank: 16
+  lora_alpha: 16
+  batch_size: 8
+  gradient_accumulation_steps: 4
+  gradient_checkpointing: true
+  dataloader_num_workers: 4
+  allow_tf32: true
+  optim: adamw_torch
+  logging_nan_inf_filter: false
+  max_seq_len: 2048
+  warmup_ratio: 0.05
+  max_grad_norm: 0.1
+  early_stopping_patience: 1
+  eval_steps: 50
+  save_steps: 50
+
+data:
+  train_path: data/splits/train_v2.jsonl
+  dev_path: data/splits/dev_v2.jsonl
