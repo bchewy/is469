@@ -1,0 +1,936 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Research — EN→JA Translation</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Geist+Mono:wght@300;400;500;600&family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+<style>
+*, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+:root {
+  --bg: #0a0a0a; --card: #111; --border: #1e1e1e; --border-light: #2a2a2a;
+  --fg: #ededed; --fg-secondary: #888; --fg-tertiary: #555;
+  --blue: #3b82f6; --green: #22c55e; --amber: #f59e0b; --purple: #a855f7;
+  --cyan: #06b6d4; --rose: #f43f5e;
+  --radius: 12px;
+  --sans: 'Inter', -apple-system, sans-serif;
+  --mono: 'Geist Mono', 'SF Mono', monospace;
+}
+html { font-size: 14px; }
+body { background: var(--bg); color: var(--fg); font-family: var(--sans); min-height: 100vh; -webkit-font-smoothing: antialiased; }
+::selection { background: rgba(255,255,255,0.15); }
+a { color: inherit; text-decoration: none; }
+
+nav {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 0 1.5rem; height: 48px; border-bottom: 1px solid var(--border);
+  position: sticky; top: 0; background: rgba(10,10,10,0.92); backdrop-filter: blur(12px); z-index: 100;
+}
+.nav-left { display: flex; align-items: center; gap: 0.75rem; }
+.nav-title { font-size: 0.85rem; font-weight: 600; letter-spacing: -0.01em; }
+.nav-sep { color: var(--fg-tertiary); font-size: 1.1rem; font-weight: 200; }
+.nav-subtitle { font-size: 0.85rem; color: var(--fg-secondary); font-weight: 400; }
+.nav-links { display: flex; gap: 0.25rem; }
+.nav-link {
+  font-size: 0.75rem; color: var(--fg-tertiary); padding: 0.3rem 0.6rem;
+  border-radius: 6px; font-weight: 500; transition: all 0.15s;
+}
+.nav-link:hover { color: var(--fg-secondary); background: rgba(255,255,255,0.05); }
+.nav-link.active { color: var(--fg); background: rgba(255,255,255,0.08); }
+
+.container { max-width: 800px; margin: 0 auto; padding: 3rem 1.5rem 5rem; }
+
+.hero { margin-bottom: 3rem; opacity: 0; animation: fadeIn 0.5s ease forwards; }
+.hero h1 { font-size: 2rem; font-weight: 700; letter-spacing: -0.03em; margin-bottom: 0.4rem; }
+.hero p { color: var(--fg-secondary); font-size: 0.9rem; line-height: 1.6; max-width: 560px; }
+.demo-cta {
+  display: inline-flex; align-items: center; gap: 0.4rem;
+  padding: 0.45rem 1rem; border: 1px solid var(--blue); border-radius: 8px;
+  font-size: 0.75rem; font-weight: 600; color: var(--blue); transition: all 0.15s;
+  margin-top: 1rem;
+}
+.demo-cta:hover { background: rgba(59,130,246,0.1); }
+.demo-cta svg { width: 12px; height: 12px; fill: none; stroke: currentColor; stroke-width: 2.5; stroke-linecap: round; }
+
+.section { margin-bottom: 3rem; }
+.section-title {
+  font-size: 0.7rem; font-weight: 600; text-transform: uppercase;
+  letter-spacing: 0.06em; color: var(--fg-tertiary); margin-bottom: 1rem;
+  display: flex; align-items: center; gap: 0.5rem;
+}
+.section-title .dot { width: 6px; height: 6px; border-radius: 50%; }
+
+.card {
+  background: var(--card); border: 1px solid var(--border); border-radius: var(--radius);
+  overflow: hidden;
+}
+.card-header {
+  padding: 0.75rem 1rem; border-bottom: 1px solid var(--border);
+  font-size: 0.75rem; color: var(--fg-secondary); font-weight: 500;
+  display: flex; align-items: center; justify-content: space-between;
+}
+
+table {
+  width: 100%; border-collapse: collapse; font-size: 0.8rem;
+}
+th {
+  text-align: left; padding: 0.55rem 1rem;
+  font-size: 0.65rem; font-weight: 600; text-transform: uppercase;
+  letter-spacing: 0.05em; color: var(--fg-tertiary);
+  border-bottom: 1px solid var(--border);
+}
+td {
+  padding: 0.55rem 1rem; border-bottom: 1px solid var(--border);
+  font-family: var(--mono); font-size: 0.8rem;
+}
+tr:last-child td { border-bottom: none; }
+td:first-child { font-family: var(--sans); color: var(--fg-secondary); font-weight: 500; }
+td:nth-child(2), td:nth-child(3), th:nth-child(2), th:nth-child(3) { text-align: right; }
+td:last-child, th:last-child { text-align: right; }
+.delta-pos { color: var(--green); }
+.delta-neg { color: var(--rose); }
+.delta-flat { color: var(--fg-tertiary); }
+
+/* ─── SVG charts ─── */
+.chart-container { padding: 1.5rem 1rem; }
+.chart-container svg { width: 100%; overflow: visible; }
+
+/* ─── radar chart ─── */
+.radar-grid { padding: 1.5rem; display: flex; justify-content: center; }
+
+/* ─── timeline ─── */
+.timeline-track {
+  position: relative;
+  padding: 1.5rem 1rem 1rem;
+}
+
+.tl-line {
+  position: absolute;
+  left: 28px;
+  top: 0;
+  bottom: 0;
+  width: 2px;
+  background: linear-gradient(to bottom, var(--green), var(--amber), var(--rose), var(--fg-tertiary));
+  border-radius: 1px;
+}
+
+.tl-node {
+  position: relative;
+  display: flex;
+  gap: 1.25rem;
+  padding: 0 0 2rem 0;
+}
+
+.tl-node:last-child { padding-bottom: 0; }
+
+.tl-marker-wrap {
+  position: relative;
+  z-index: 2;
+  flex-shrink: 0;
+  width: 56px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.3rem;
+}
+
+.tl-dot {
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  border: 2px solid var(--bg);
+  box-shadow: 0 0 0 2px var(--fg-tertiary);
+  position: relative;
+}
+
+.tl-dot::after {
+  content: '';
+  position: absolute;
+  inset: 2px;
+  border-radius: 50%;
+}
+
+.tl-node:nth-child(1) .tl-dot { box-shadow: 0 0 0 2px var(--green); }
+.tl-node:nth-child(1) .tl-dot::after { background: var(--green); }
+.tl-node:nth-child(2) .tl-dot { box-shadow: 0 0 0 2px var(--amber); }
+.tl-node:nth-child(2) .tl-dot::after { background: var(--amber); }
+.tl-node:nth-child(3) .tl-dot { box-shadow: 0 0 0 2px var(--rose); }
+.tl-node:nth-child(3) .tl-dot::after { background: var(--rose); }
+.tl-node:nth-child(4) .tl-dot { box-shadow: 0 0 0 2px var(--blue); }
+.tl-node:nth-child(4) .tl-dot::after { background: var(--blue); }
+
+.tl-phase {
+  font-family: var(--mono);
+  font-size: 0.55rem;
+  color: var(--fg-tertiary);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  font-weight: 600;
+}
+
+.tl-content {
+  flex: 1;
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 1rem 1.1rem;
+  transition: border-color 0.2s;
+}
+
+.tl-content:hover { border-color: var(--border-light); }
+
+.tl-node:nth-child(1) .tl-content { border-left: 2px solid var(--green); }
+.tl-node:nth-child(2) .tl-content { border-left: 2px solid var(--amber); }
+.tl-node:nth-child(3) .tl-content { border-left: 2px solid var(--rose); }
+.tl-node:nth-child(4) .tl-content { border-left: 2px solid var(--blue); }
+
+.tl-title {
+  font-size: 0.85rem;
+  font-weight: 600;
+  margin-bottom: 0.3rem;
+}
+
+.tl-desc {
+  font-size: 0.75rem;
+  color: var(--fg-secondary);
+  line-height: 1.55;
+}
+
+.tl-tags {
+  display: flex;
+  gap: 0.35rem;
+  margin-top: 0.6rem;
+  flex-wrap: wrap;
+}
+
+.tl-tag {
+  font-family: var(--mono);
+  font-size: 0.6rem;
+  padding: 0.15rem 0.45rem;
+  border-radius: 4px;
+  background: rgba(255,255,255,0.05);
+  color: var(--fg-tertiary);
+  font-weight: 500;
+}
+
+/* ─── insight cards ─── */
+.insights { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin-top: 1.5rem; }
+.insight {
+  background: var(--card); border: 1px solid var(--border); border-radius: var(--radius);
+  padding: 1rem;
+}
+.insight-icon {
+  width: 28px; height: 28px; border-radius: 6px; display: flex;
+  align-items: center; justify-content: center; margin-bottom: 0.6rem;
+}
+.insight-icon svg {
+  width: 14px; height: 14px; fill: none; stroke-width: 2;
+  stroke-linecap: round; stroke-linejoin: round;
+}
+.insight:nth-child(1) .insight-icon { background: rgba(59,130,246,0.12); }
+.insight:nth-child(1) .insight-icon svg { stroke: var(--blue); }
+.insight:nth-child(2) .insight-icon { background: rgba(245,158,11,0.12); }
+.insight:nth-child(2) .insight-icon svg { stroke: var(--amber); }
+.insight:nth-child(3) .insight-icon { background: rgba(244,63,94,0.12); }
+.insight:nth-child(3) .insight-icon svg { stroke: var(--rose); }
+.insight:nth-child(4) .insight-icon { background: rgba(34,197,94,0.12); }
+.insight:nth-child(4) .insight-icon svg { stroke: var(--green); }
+.insight-title { font-size: 0.8rem; font-weight: 600; margin-bottom: 0.25rem; }
+.insight-text { font-size: 0.7rem; color: var(--fg-secondary); line-height: 1.5; }
+
+footer {
+  text-align: center; padding: 2rem 0 1rem;
+  font-size: 0.7rem; color: var(--fg-tertiary);
+}
+
+.faq-body {
+  display: none; padding: 0.75rem 1rem 1rem; font-size: 0.8rem;
+  color: var(--fg-secondary); line-height: 1.6;
+}
+.faq-body ul { padding-left: 1rem; margin: 0; }
+.faq-body li { margin-bottom: 0.4rem; }
+.faq-body code { font-family: var(--mono); font-size: 0.75rem; color: var(--fg-tertiary); }
+.faq-open .faq-body { display: block; animation: fadeIn 0.2s ease; }
+.faq-open .card-header span:last-child { transform: rotate(45deg); display: inline-block; }
+
+.anim { opacity: 0; transform: translateY(12px); transition: opacity 0.5s ease, transform 0.5s ease; }
+.anim.visible { opacity: 1; transform: translateY(0); }
+
+@keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+
+@media (max-width: 640px) {
+  .container { padding: 2rem 1rem 3rem; }
+  .hero h1 { font-size: 1.5rem; }
+  .insights { grid-template-columns: 1fr; }
+  .tl-marker-wrap { width: 40px; }
+  .tl-line { left: 20px; }
+}
+</style>
+</head>
+<body>
+
+<nav>
+  <div class="nav-left">
+    <span class="nav-title">genai-llms</span>
+    <span class="nav-sep">/</span>
+    <span class="nav-subtitle">S0/S1 Fine-Tuning</span>
+  </div>
+  <div class="nav-links">
+    <a href="/" class="nav-link">Home</a>
+    <a href="/s0-s1" class="nav-link active">S0/S1</a>
+    <a href="/s2" class="nav-link">S2</a>
+    <a href="/s3" class="nav-link">S3</a>
+    <a href="/metrics" class="nav-link">Metrics</a>
+  </div>
+</nav>
+
+<div class="container">
+
+  <div class="hero">
+    <h1>S0 &rarr; S1: Fine-Tuning</h1>
+    <p>We took a small pre-trained language model and taught it to translate English to Japanese by showing it thousands of example translations. The question: does this extra training actually make the translations better?</p>
+    <a href="/s3" class="demo-cta">
+      <svg viewBox="0 0 24 24"><polygon points="5 3 19 12 5 21 5 3"/></svg>
+      Try the live S3 translator
+    </a>
+  </div>
+
+  <!-- How we fine-tuned -->
+  <div class="section anim">
+    <div class="section-title"><span class="dot" style="background:var(--purple)"></span>How S1 Was Built from S0</div>
+    <div class="card">
+      <div class="card-header">QLoRA Supervised Fine-Tuning Pipeline</div>
+      <div style="padding:1.25rem;">
+        <div style="display:grid; grid-template-columns:1fr 1fr; gap:1.5rem;">
+          <div>
+            <div style="font-size:0.65rem; color:var(--fg-tertiary); text-transform:uppercase; letter-spacing:0.05em; margin-bottom:0.5rem; font-weight:600;">S0 &mdash; Prompt-Only Baseline</div>
+            <div style="font-size:0.8rem; color:var(--fg-secondary); line-height:1.6;">
+              <strong style="color:var(--fg);">Qwen 2.5-0.5B-Instruct</strong> straight out of the box. We just gave it a prompt saying &ldquo;translate this to Japanese&rdquo; &mdash; no extra training at all. This is our control group.
+            </div>
+          </div>
+          <div>
+            <div style="font-size:0.65rem; color:var(--fg-tertiary); text-transform:uppercase; letter-spacing:0.05em; margin-bottom:0.5rem; font-weight:600;">S1 &mdash; QLoRA Fine-Tuned</div>
+            <div style="font-size:0.8rem; color:var(--fg-secondary); line-height:1.6;">
+              Same model, but we added a small trainable layer on top (called a <strong style="color:var(--amber);">LoRA adapter</strong>) and trained it on 24,000 English-Japanese translation pairs. Think of it like adding a specialised lens to a camera &mdash; the base model stays frozen, we only train the lens.
+            </div>
+          </div>
+        </div>
+        <div style="margin-top:1.25rem; padding-top:1rem; border-top:1px solid var(--border);">
+          <div style="font-size:0.65rem; color:var(--fg-tertiary); text-transform:uppercase; letter-spacing:0.05em; margin-bottom:0.5rem; font-weight:600;">Training Config (Final Stable Rerun)</div>
+          <div style="display:flex; gap:0.5rem; flex-wrap:wrap;">
+            <span class="tl-tag">LoRA rank 16</span>
+            <span class="tl-tag">alpha 16</span>
+            <span class="tl-tag">dropout 0.05</span>
+            <span class="tl-tag">lr 5e-6</span>
+            <span class="tl-tag">batch 8</span>
+            <span class="tl-tag">grad accum 4</span>
+            <span class="tl-tag">1 epoch / 400 max steps</span>
+            <span class="tl-tag">max seq 2048</span>
+            <span class="tl-tag">early stopping patience 1</span>
+            <span class="tl-tag">eval every 100 steps</span>
+            <span class="tl-tag">4-bit NF4</span>
+            <span class="tl-tag">bfloat16 compute</span>
+            <span class="tl-tag">gradient clipping 0.1</span>
+          </div>
+        </div>
+        <div style="margin-top:1rem; padding-top:0.75rem; border-top:1px solid var(--border);">
+          <div style="font-size:0.65rem; color:var(--fg-tertiary); text-transform:uppercase; letter-spacing:0.05em; margin-bottom:0.5rem; font-weight:600;">LoRA Target Modules</div>
+          <div style="display:flex; gap:0.5rem; flex-wrap:wrap;">
+            <span class="tl-tag">q_proj</span>
+            <span class="tl-tag">k_proj</span>
+            <span class="tl-tag">v_proj</span>
+            <span class="tl-tag">o_proj</span>
+            <span class="tl-tag">gate_proj</span>
+            <span class="tl-tag">up_proj</span>
+            <span class="tl-tag">down_proj</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- What the benchmarks mean -->
+  <div class="section anim">
+    <div class="section-title"><span class="dot" style="background:var(--cyan)"></span>Understanding the Benchmarks</div>
+    <div style="display:grid; grid-template-columns:1fr 1fr; gap:1rem;">
+      <div class="card" style="padding:1rem;">
+        <div style="font-size:0.8rem; font-weight:600; margin-bottom:0.35rem; color:var(--blue);">BLEU (char)</div>
+        <div style="font-size:0.75rem; color:var(--fg-secondary); line-height:1.55;"><strong style="color:var(--fg);">Does the output look like the reference?</strong> Compares the model&rsquo;s translation character-by-character against the &ldquo;correct&rdquo; answer. Higher = closer match. Good for catching obvious mistakes, but a perfectly valid translation that uses different wording will score low.</div>
+      </div>
+      <div class="card" style="padding:1rem;">
+        <div style="font-size:0.8rem; font-weight:600; margin-bottom:0.35rem; color:var(--amber);">chrF++</div>
+        <div style="font-size:0.75rem; color:var(--fg-secondary); line-height:1.55;"><strong style="color:var(--fg);">A more forgiving version of BLEU.</strong> Instead of requiring exact matches, it gives partial credit for similar characters and word patterns. Especially useful for Japanese where the same meaning can be written in multiple ways (kanji, hiragana, katakana).</div>
+      </div>
+      <div class="card" style="padding:1rem;">
+        <div style="font-size:0.8rem; font-weight:600; margin-bottom:0.35rem; color:var(--green);">COMET</div>
+        <div style="font-size:0.75rem; color:var(--fg-secondary); line-height:1.55;"><strong style="color:var(--fg);">Does the translation actually mean the same thing?</strong> An AI model trained on human judgements that scores whether the meaning is preserved, not just the wording. This is our most important metric. A translation can score low on BLEU (different words) but high on COMET (same meaning) &mdash; that&rsquo;s actually fine.</div>
+      </div>
+      <div class="card" style="padding:1rem;">
+        <div style="font-size:0.8rem; font-weight:600; margin-bottom:0.35rem; color:var(--rose);">Terminology Accuracy</div>
+        <div style="font-size:0.75rem; color:var(--fg-secondary); line-height:1.55;"><strong style="color:var(--fg);">Did it use the right technical terms?</strong> We have a glossary saying e.g. &ldquo;password&rdquo; must be translated as &ldquo;パスワード&rdquo;, not &ldquo;暗証番号&rdquo;. This metric checks if the model used the approved term. A translation can sound natural but use the wrong industry term &mdash; that&rsquo;s a real problem in professional localisation.</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- S0 vs S1 Benchmark -->
+  <div class="section anim">
+    <div class="section-title"><span class="dot" style="background:var(--blue)"></span>S0 vs S1 Benchmark &mdash; test_v1</div>
+    <div class="card">
+      <div class="card-header">
+        <span>4,254 samples &middot; Qwen 2.5-0.5B-Instruct</span>
+        <span style="font-family:var(--mono);color:var(--fg-tertiary)">test_v1.jsonl</span>
+      </div>
+      <div style="padding:0;">
+        <table>
+          <thead><tr><th>Metric</th><th>S0</th><th>S1</th><th>Delta</th></tr></thead>
+          <tbody>
+            <tr><td>Avg Latency (ms)</td><td>169.8</td><td>258.6</td><td class="delta-neg">+88.8</td></tr>
+            <tr><td>BLEU (char)</td><td>16.29</td><td>17.64</td><td class="delta-pos">+1.35</td></tr>
+            <tr><td>chrF++</td><td>12.76</td><td>12.91</td><td class="delta-pos">+0.15</td></tr>
+            <tr><td>COMET</td><td>0.7291</td><td>0.7303</td><td class="delta-flat">+0.0012</td></tr>
+            <tr><td>Terminology Accuracy</td><td>0.1463</td><td>0.1454</td><td class="delta-neg">-0.0009</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <!-- Grouped Bar Chart: S0 vs S1 Metrics -->
+  <div class="section anim">
+    <div class="section-title"><span class="dot" style="background:var(--amber)"></span>S0 vs S1 Side by Side</div>
+    <div class="card">
+      <div class="card-header">Normalized scores &middot; higher is better</div>
+      <div class="chart-container">
+        <svg id="groupedBar" viewBox="0 0 700 220"></svg>
+      </div>
+    </div>
+  </div>
+
+  <!-- Dev Runs Comparison -->
+  <div class="section anim">
+    <div class="section-title"><span class="dot" style="background:var(--purple)"></span>Training Runs &mdash; dev_v2</div>
+    <div class="card" style="margin-bottom:1rem;">
+      <div class="card-header">
+        <span>Run A &mdash; 2,668 dev samples</span>
+        <span style="font-family:var(--mono);color:var(--green)">best run</span>
+      </div>
+      <div style="padding:0;">
+        <table>
+          <thead><tr><th>Metric</th><th>S0 Dev</th><th>S1 Run A</th><th>Delta</th></tr></thead>
+          <tbody>
+            <tr><td>BLEU (char)</td><td>22.06</td><td>24.23</td><td class="delta-pos">+2.17</td></tr>
+            <tr><td>chrF++</td><td>17.05</td><td>17.66</td><td class="delta-pos">+0.61</td></tr>
+            <tr><td>COMET</td><td>0.7807</td><td>0.7858</td><td class="delta-pos">+0.0051</td></tr>
+            <tr><td>Terminology Accuracy</td><td>0.2162</td><td>0.2095</td><td class="delta-neg">-0.0067</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+    <div class="card" style="margin-bottom:1rem;">
+      <div class="card-header">
+        <span>Run B &mdash; 2,668 dev samples</span>
+        <span style="font-family:var(--mono);color:var(--fg-tertiary)">lr 3e-6</span>
+      </div>
+      <div style="padding:0;">
+        <table>
+          <thead><tr><th>Metric</th><th>S0 Dev</th><th>S1 Run B</th><th>Delta</th></tr></thead>
+          <tbody>
+            <tr><td>BLEU (char)</td><td>22.06</td><td>23.24</td><td class="delta-pos">+1.18</td></tr>
+            <tr><td>chrF++</td><td>17.05</td><td>17.21</td><td class="delta-pos">+0.16</td></tr>
+            <tr><td>COMET</td><td>0.7807</td><td>0.7816</td><td class="delta-flat">+0.0009</td></tr>
+            <tr><td>Terminology Accuracy</td><td>0.2162</td><td>0.2141</td><td class="delta-neg">-0.0021</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+    <div class="card">
+      <div class="card-header">
+        <span>Run D &mdash; 2,668 dev samples</span>
+        <span style="font-family:var(--mono);color:var(--rose)">assistant-only loss</span>
+      </div>
+      <div style="padding:0;">
+        <table>
+          <thead><tr><th>Metric</th><th>S0 Dev</th><th>S1 Run D</th><th>Delta</th></tr></thead>
+          <tbody>
+            <tr><td>BLEU (char)</td><td>22.06</td><td>5.26</td><td class="delta-neg">-16.80</td></tr>
+            <tr><td>chrF++</td><td>17.05</td><td>10.62</td><td class="delta-neg">-6.43</td></tr>
+            <tr><td>COMET</td><td>0.7807</td><td>0.6145</td><td class="delta-neg">-0.1662</td></tr>
+            <tr><td>Terminology Accuracy</td><td>0.2162</td><td>0.2257</td><td class="delta-pos">+0.0095</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <!-- What We Learned -->
+  <div class="section anim">
+    <div class="section-title"><span class="dot" style="background:var(--cyan)"></span>What We Learned</div>
+    <div class="card" style="padding:1.25rem;">
+      <div style="font-size:0.85rem; line-height:1.7; color:var(--fg-secondary);">
+        <p style="margin-bottom:1rem;"><strong style="color:var(--fg);">The translations got slightly better at looking like the reference, but not at actually meaning the right thing.</strong> Runs A and B improved BLEU (how similar the output looks to the reference), but COMET (whether the meaning is correct) barely moved &mdash; only +0.0012 on test. The model learned to mimic the style of the training data without deeper understanding.</p>
+        <p style="margin-bottom:1rem;"><strong style="color:var(--rose);">The model got worse at using the right technical terms.</strong> Even after training on 24K translation pairs, the model didn&rsquo;t learn to use our approved glossary terms like &ldquo;パスワード&rdquo; for &ldquo;password&rdquo;. Terminology accuracy actually dropped in Runs A and B. The training data taught general fluency, not domain-specific vocabulary.</p>
+        <p style="margin-bottom:1rem;"><strong style="color:var(--purple);">We found you can&rsquo;t have both.</strong> In Run D, we changed the training so the model only learned from the Japanese output (ignoring the English input during loss calculation). This was the only run that improved terminology &mdash; but it broke everything else. BLEU dropped from 22 to 5. The model got better at producing Japanese words but forgot how to connect them to the English meaning.</p>
+        <p style="margin-bottom:1rem;"><strong style="color:var(--amber);">Training a model this small is like walking a tightrope.</strong> Run B crashed partway through training with NaN errors (the math literally broke). With only 500 million parameters, there&rsquo;s very little room for the model to learn new things without destabilising what it already knows.</p>
+        <p><strong style="color:var(--fg);">Bottom line:</strong> fine-tuning a small model gave us small improvements. The real gains came from giving the model access to external knowledge (S2 retrieval) and letting a bigger model make decisions (S3 agentic).</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- What changed between runs -->
+  <div class="section anim">
+    <div class="section-title"><span class="dot" style="background:var(--rose)"></span>What Changed Between Runs</div>
+    <div class="card">
+      <div class="card-header">Hyperparameter differences across training runs</div>
+      <div style="padding:0;">
+        <table>
+          <thead>
+            <tr><th style="text-align:left">Parameter</th><th style="text-align:right">Run A</th><th style="text-align:right">Run B</th><th style="text-align:right">Run D</th></tr>
+          </thead>
+          <tbody>
+            <tr><td>Learning Rate</td><td>5e-6</td><td style="color:var(--amber)">3e-6</td><td>5e-6</td></tr>
+            <tr><td>LoRA Rank / Alpha</td><td>16 / 16</td><td>16 / 16</td><td>16 / 16</td></tr>
+            <tr><td>Loss Masking</td><td>full sequence</td><td>full sequence</td><td style="color:var(--purple)">assistant-only</td></tr>
+            <tr><td>Max Steps</td><td>600</td><td>600</td><td style="color:var(--purple)">300</td></tr>
+            <tr><td>Epochs</td><td>1</td><td>1</td><td>1</td></tr>
+            <tr><td>Gradient Clipping</td><td>0.1</td><td>0.1</td><td>0.1</td></tr>
+            <tr style="border-top:1px solid var(--border-light)">
+              <td style="font-family:var(--sans);color:var(--fg);font-weight:600">Result</td>
+              <td style="color:var(--green);font-weight:600">Best overall</td>
+              <td style="color:var(--amber);font-weight:600">Late NaN</td>
+              <td style="color:var(--rose);font-weight:600">Term &uarr; Fluency &darr;&darr;</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+    <!-- Run A -->
+    <div class="card" style="margin-top:1rem;">
+      <div class="card-header"><span style="color:var(--blue);font-weight:600;">Run A</span> &mdash; baseline S1 config</div>
+      <div style="padding:1rem;">
+        <ul style="font-size:0.8rem; color:var(--fg-secondary); line-height:1.6; padding-left:1rem; margin:0;">
+          <li><strong style="color:var(--fg);">Changed:</strong> nothing &mdash; this was the first stable run using the base config</li>
+          <li><strong style="color:var(--green);">Result:</strong> best dev metrics (BLEU +2.17, COMET +0.0051), stable training, no NaN</li>
+          <li><strong style="color:var(--rose);">But:</strong> terminology accuracy dropped -0.0067</li>
+          <li>A separate final stable rerun (using the same base config) was used for the test_v1 S1 evaluation</li>
+        </ul>
+      </div>
+    </div>
+
+    <!-- Run B -->
+    <div class="card" style="margin-top:0.75rem;">
+      <div class="card-header"><span style="color:var(--amber);font-weight:600;">Run B</span> &mdash; lower learning rate</div>
+      <div style="padding:1rem;">
+        <ul style="font-size:0.8rem; color:var(--fg-secondary); line-height:1.6; padding-left:1rem; margin:0;">
+          <li><strong style="color:var(--fg);">Changed:</strong> learning rate 5e-6 &rarr; <strong style="color:var(--amber);">3e-6</strong> (how fast the model learns per step &mdash; lower = slower, more cautious updates)</li>
+          <li><strong style="color:var(--fg);">Why:</strong> Run A had worked, but earlier attempts had crashed mid-training. We thought slowing down the learning might prevent that</li>
+          <li><strong style="color:var(--amber);">Result:</strong> worse on every metric (BLEU +1.18 vs +2.17) and still crashed with NaN anyway</li>
+          <li><strong style="color:var(--fg);">Takeaway:</strong> learning slower didn&rsquo;t help &mdash; the model just absorbed less from the training data in the same number of steps</li>
+        </ul>
+      </div>
+    </div>
+
+    <!-- Run D -->
+    <div class="card" style="margin-top:0.75rem;">
+      <div class="card-header"><span style="color:var(--purple);font-weight:600;">Run D</span> &mdash; assistant-only loss masking</div>
+      <div style="padding:1rem;">
+        <ul style="font-size:0.8rem; color:var(--fg-secondary); line-height:1.6; padding-left:1rem; margin:0;">
+          <li><strong style="color:var(--fg);">Changed:</strong> how the model learns from each example. Normally it learns from the entire conversation (English input + Japanese output). In Run D, we told it to <strong style="color:var(--purple);">only learn from the Japanese output</strong> and ignore the English side during training</li>
+          <li><strong style="color:var(--fg);">Why:</strong> we thought focusing purely on the Japanese would teach it better Japanese vocabulary and terminology</li>
+          <li><strong style="color:var(--green);">Win:</strong> it worked for terminology &mdash; the only run where the model used more correct glossary terms (+0.0095)</li>
+          <li><strong style="color:var(--rose);">Cost:</strong> but the translations became nearly unusable. BLEU dropped from 22 to 5 and COMET from 0.78 to 0.61</li>
+          <li><strong style="color:var(--fg);">Takeaway:</strong> the model could still see the English text, but since it wasn&rsquo;t being trained on that connection, it lost the ability to translate coherently. It learned better Japanese words but forgot what they were supposed to mean in context</li>
+        </ul>
+      </div>
+    </div>
+
+    <!-- NaN explainer -->
+    <div class="card" style="margin-top:0.75rem; border-left:2px solid var(--amber);">
+      <div class="card-header"><span style="color:var(--amber);font-weight:600;">What is NaN instability?</span></div>
+      <div style="padding:1rem;">
+        <ul style="font-size:0.8rem; color:var(--fg-secondary); line-height:1.6; padding-left:1rem; margin:0;">
+          <li><strong style="color:var(--fg);">What is NaN?</strong> It stands for &ldquo;Not a Number&rdquo;. During training, the model does millions of math operations. If one of those calculations produces an impossible result (like dividing by zero), it outputs NaN instead of a real number</li>
+          <li><strong style="color:var(--fg);">Why is it a problem?</strong> Once NaN appears in one calculation, it spreads like a virus. Every subsequent calculation that touches it also becomes NaN. The model&rsquo;s learned knowledge gets corrupted and it starts producing nonsense</li>
+          <li><strong style="color:var(--fg);">What happened in our runs?</strong> Training would look completely normal for most of the run &mdash; loss going down, metrics improving. Then suddenly, without warning, the loss would spike to NaN and the model would be broken</li>
+          <li><strong style="color:var(--fg);">Why is this tricky?</strong> Because the early checkpoints (snapshots we save during training) look fine. You think the run succeeded until you check the later checkpoints and realise they&rsquo;re corrupted</li>
+          <li><strong style="color:var(--fg);">Why does this happen with small models?</strong> We compressed the model to 4-bit precision to fit it on our hardware. This means every number is stored with less accuracy &mdash; like rounding to fewer decimal places. With less room for precision, small errors can snowball into NaN</li>
+          <li><strong style="color:var(--fg);">How did we deal with it?</strong> We saved checkpoints frequently (every 100 steps), set a strict early-stopping rule, limited training to 300-600 steps, and used gradient clipping (capping how big each update can be). If a run hit NaN, we threw away the broken checkpoints and kept the last good one</li>
+        </ul>
+      </div>
+    </div>
+
+    <!-- Why we held other params -->
+    <div class="card" style="margin-top:0.75rem;">
+      <div class="card-header">Why other hyperparameters were held constant</div>
+      <div style="padding:1rem;">
+        <ul style="font-size:0.8rem; color:var(--fg-secondary); line-height:1.6; padding-left:1rem; margin:0;">
+          <li><strong style="color:var(--fg);">LoRA rank (16):</strong> rank controls how much the adapter can learn. On a small 0.5B model, making the adapter too big (high rank) risks the model just memorising the training data instead of learning general patterns</li>
+          <li><strong style="color:var(--fg);">Batch size (32 effective):</strong> this is how many examples the model sees before updating its weights. 32 was the most our hardware could handle &mdash; going higher would have required a bigger GPU</li>
+          <li><strong style="color:var(--fg);">Max sequence length (2048):</strong> the maximum length of text the model can process at once. Most of our translation pairs were short (~100 characters), but some longer ones needed up to 500. We set a generous ceiling to be safe</li>
+          <li><strong style="color:var(--fg);">Training length (1 epoch, 300-600 steps):</strong> we deliberately kept training short because longer runs crashed with NaN. One pass through half the data was safer than multiple passes through all of it</li>
+          <li><strong style="color:var(--fg);">Dropout (0.05), clipping (0.1):</strong> these are safety mechanisms &mdash; dropout randomly disables parts of the model during training to prevent memorisation, clipping limits how big each weight update can be. Both were already set conservatively</li>
+          <li><strong style="color:var(--fg);">Our approach:</strong> we changed one or two things per run so we could tell exactly what caused each result, rather than changing everything at once and guessing</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+
+  <!-- Timeline -->
+  <div class="section anim">
+    <div class="section-title"><span class="dot" style="background:var(--fg-tertiary)"></span>Training Timeline</div>
+    <div class="card" style="padding:0;">
+      <table>
+        <thead><tr><th style="text-align:left;width:100px">Phase</th><th style="text-align:left">What happened</th></tr></thead>
+        <tbody>
+          <tr>
+            <td style="color:var(--green);font-weight:600">Setup</td>
+            <td style="font-family:var(--sans);color:var(--fg-secondary)">Established S0 baseline with Qwen 2.5-0.5B-Instruct. Configured QLoRA (rank 16, NF4, lr 5e-6). Froze splits: train_v2 (24K), dev_v2 (2,668), test_v1 (4,254).</td>
+          </tr>
+          <tr>
+            <td style="color:var(--blue);font-weight:600">Run A</td>
+            <td style="font-family:var(--sans);color:var(--fg-secondary)">Best dev metrics: BLEU +2.17, COMET +0.0051. Stable training, no NaN. Terminology accuracy declined slightly (-0.0067). Promoted to test_v1 evaluation.</td>
+          </tr>
+          <tr>
+            <td style="color:var(--amber);font-weight:600">Run B</td>
+            <td style="font-family:var(--sans);color:var(--fg-secondary)">Lowered lr to 3e-6 hoping for stability. Underperformed Run A on all metrics. Developed late NaN at later checkpoints. Rejected.</td>
+          </tr>
+          <tr>
+            <td style="color:var(--purple);font-weight:600">Run D</td>
+            <td style="font-family:var(--sans);color:var(--fg-secondary)">Switched to assistant-only loss masking. Only run to improve terminology (+0.0095). But BLEU collapsed to 5.26 and COMET to 0.6145. Confirmed the fluency-vs-terminology tradeoff.</td>
+          </tr>
+          <tr>
+            <td style="color:var(--fg-tertiary);font-weight:600">Conclusion</td>
+            <td style="font-family:var(--sans);color:var(--fg-secondary)">0.5B fine-tuning hit a ceiling. A final stable rerun (same base config as Run A) was used as S1. Motivated pivot to retrieval (S2) and agentic (S3) approaches.</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- Key Findings -->
+  <div class="section anim">
+    <div class="section-title"><span class="dot" style="background:var(--green)"></span>Key Findings</div>
+    <div class="insights">
+      <div class="insight">
+        <div class="insight-icon"><svg viewBox="0 0 24 24"><path d="M12 2v20M2 12h20"/></svg></div>
+        <div class="insight-title">Small but real gains</div>
+        <div class="insight-text">Fine-tuning improved BLEU and chrF++ consistently, but COMET gains were marginal (+0.0012 on test).</div>
+      </div>
+      <div class="insight">
+        <div class="insight-icon"><svg viewBox="0 0 24 24"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><path d="M12 9v4M12 17h.01"/></svg></div>
+        <div class="insight-title">Terminology gap persists</div>
+        <div class="insight-text">Fine-tuning did not improve glossary compliance. Accuracy dropped slightly in every run (-0.0009 to -0.0067).</div>
+      </div>
+      <div class="insight">
+        <div class="insight-icon"><svg viewBox="0 0 24 24"><path d="M18 6L6 18M6 6l12 12"/></svg></div>
+        <div class="insight-title">Fluency vs terminology tradeoff</div>
+        <div class="insight-text">Run D (assistant-only loss) improved terminology +0.0095 but destroyed fluency (BLEU -16.8). In our experiments, optimizing for both pulled in opposite directions.</div>
+      </div>
+      <div class="insight">
+        <div class="insight-icon"><svg viewBox="0 0 24 24"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><path d="M22 4L12 14.01l-3-3"/></svg></div>
+        <div class="insight-title">Motivated the pivot to S2/S3</div>
+        <div class="insight-text">Fine-tuning alone hit a ceiling. Retrieval (S2) and agentic methods (S3) were needed to achieve real quality gains: COMET jumped from 0.73 to 0.95.</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- FAQ -->
+  <div class="section anim">
+    <div class="section-title"><span class="dot" style="background:var(--blue)"></span>Frequently Asked Questions</div>
+
+    <div class="card" style="margin-bottom:0.75rem;">
+      <div class="card-header" style="cursor:pointer;" onclick="this.parentElement.classList.toggle('faq-open')">
+        <span style="font-weight:600;color:var(--fg);">Why 0.5B instead of the recommended 7B model?</span>
+        <span style="color:var(--fg-tertiary);font-size:0.7rem;">+</span>
+      </div>
+      <div class="faq-body">
+        <ul>
+          <li>The project kickoff recommended 7B-8B, but we switched to 0.5B because it was faster to iterate on and fit our local GPU constraints</li>
+          <li>Our available VPS did not have enough VRAM for 7B QLoRA training with the full dataset</li>
+          <li>The tradeoff is acknowledged in the report &mdash; 0.5B has less capacity for learning, which likely contributed to the flat S0 vs S1 results</li>
+        </ul>
+      </div>
+    </div>
+
+    <div class="card" style="margin-bottom:0.75rem;">
+      <div class="card-header" style="cursor:pointer;" onclick="this.parentElement.classList.toggle('faq-open')">
+        <span style="font-weight:600;color:var(--fg);">Why QLoRA instead of full fine-tuning?</span>
+        <span style="color:var(--fg-tertiary);font-size:0.7rem;">+</span>
+      </div>
+      <div class="faq-body">
+        <ul>
+          <li>QLoRA was the intended S1 method from the project specification</li>
+          <li>It uses 4-bit quantization of the base model and only trains small adapter weights, reducing memory requirements significantly</li>
+          <li>We did not run a head-to-head full-fine-tuning baseline, so we cannot claim QLoRA was proven better &mdash; it was chosen for practical feasibility</li>
+        </ul>
+      </div>
+    </div>
+
+    <div class="card" style="margin-bottom:0.75rem;">
+      <div class="card-header" style="cursor:pointer;" onclick="this.parentElement.classList.toggle('faq-open')">
+        <span style="font-weight:600;color:var(--fg);">Why only 1 epoch with 300-600 step caps?</span>
+        <span style="color:var(--fg-tertiary);font-size:0.7rem;">+</span>
+      </div>
+      <div class="faq-body">
+        <ul>
+          <li>The 0.5B model showed late NaN instability on longer runs &mdash; training would look healthy and then suddenly collapse</li>
+          <li>Shorter, conservative runs with frequent evaluation (every 100 steps) and early stopping (patience 1) were more reliable</li>
+          <li>With 24K training examples and effective batch size 32, one full epoch is ~750 steps. Capping at 300-600 meant we used roughly half the data per run, but this was a deliberate stability tradeoff</li>
+        </ul>
+      </div>
+    </div>
+
+    <div class="card" style="margin-bottom:0.75rem;">
+      <div class="card-header" style="cursor:pointer;" onclick="this.parentElement.classList.toggle('faq-open')">
+        <span style="font-weight:600;color:var(--fg);">Why not increase LoRA rank beyond 16?</span>
+        <span style="color:var(--fg-tertiary);font-size:0.7rem;">+</span>
+      </div>
+      <div class="faq-body">
+        <ul>
+          <li>On a 0.5B model, the adapter at rank 16 already represents a relatively large fraction of the model&rsquo;s total parameters</li>
+          <li>Increasing rank risks overfitting to the training data, especially with only 24K examples</li>
+          <li>We did not run a rank-ablation study, so this is based on standard QLoRA guidance rather than empirical proof from our runs</li>
+        </ul>
+      </div>
+    </div>
+
+    <div class="card" style="margin-bottom:0.75rem;">
+      <div class="card-header" style="cursor:pointer;" onclick="this.parentElement.classList.toggle('faq-open')">
+        <span style="font-weight:600;color:var(--fg);">Why not try a different base model (Llama, Gemma)?</span>
+        <span style="color:var(--fg-tertiary);font-size:0.7rem;">+</span>
+      </div>
+      <div class="faq-body">
+        <ul>
+          <li>The S0/S1 comparison was designed as a controlled experiment with one backbone model to isolate the effect of fine-tuning</li>
+          <li>Qwen 2.5 was chosen because it has strong multilingual support including Japanese</li>
+          <li>Testing other base models was out of scope for this rerun &mdash; we cannot claim Qwen was proven superior, only that it was a reasonable choice for EN-JA translation</li>
+        </ul>
+      </div>
+    </div>
+
+    <div class="card" style="margin-bottom:0.75rem;">
+      <div class="card-header" style="cursor:pointer;" onclick="this.parentElement.classList.toggle('faq-open')">
+        <span style="font-weight:600;color:var(--fg);">Why no separate error-identification adapter?</span>
+        <span style="color:var(--fg-tertiary);font-size:0.7rem;">+</span>
+      </div>
+      <div class="faq-body">
+        <ul>
+          <li>The project spec recommended separate translation and error-ID adapters &ldquo;if time allows&rdquo;</li>
+          <li>We prioritised getting the translation adapter working and stable first</li>
+          <li>A config file for error-ID training exists (<code>finetune_error_id.yaml</code>) but was not part of the locked S0/S1 rerun path</li>
+        </ul>
+      </div>
+    </div>
+
+    <div class="card" style="margin-bottom:0.75rem;">
+      <div class="card-header" style="cursor:pointer;" onclick="this.parentElement.classList.toggle('faq-open')">
+        <span style="font-weight:600;color:var(--fg);">What would you do differently with more time?</span>
+        <span style="color:var(--fg-tertiary);font-size:0.7rem;">+</span>
+      </div>
+      <div class="faq-body">
+        <ul>
+          <li>Rerun at the originally recommended 7B/8B scale on proper GPU hardware &mdash; larger models have more capacity for learning translation patterns</li>
+          <li>Build the separate error-identification adapter that was deferred</li>
+          <li>Run a LoRA rank ablation study (rank 8 vs 16 vs 32 vs 64) to find the optimal adapter size</li>
+          <li>Continue investing in retrieval and agentic approaches, since the results show those delivered the largest quality gains</li>
+        </ul>
+      </div>
+    </div>
+
+    <div class="card" style="margin-bottom:0.75rem;">
+      <div class="card-header" style="cursor:pointer;" onclick="this.parentElement.classList.toggle('faq-open')">
+        <span style="font-weight:600;color:var(--fg);">How does S1 compare to just using ChatGPT or Claude directly?</span>
+        <span style="color:var(--fg-tertiary);font-size:0.7rem;">+</span>
+      </div>
+      <div class="faq-body">
+        <ul>
+          <li>We did not run a direct prompt-only ChatGPT or Claude baseline for S0/S1, so we cannot make a clean comparison</li>
+          <li>The closest evidence is S3, which uses Claude Sonnet 4.6 in an agentic RAG pipeline and achieves much higher quality (COMET 0.9552 vs S1&rsquo;s 0.7303)</li>
+          <li>However, S3 is not apples-to-apples &mdash; it uses additional tools, retrieval, and self-audit that a plain ChatGPT/Claude prompt would not have</li>
+          <li>The honest answer: a SOTA model with good prompting would likely outperform a fine-tuned 0.5B model, but the point of S0/S1 was to study what fine-tuning alone can do at small scale</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+
+  <div style="text-align:center; margin-top:2rem;">
+    <a href="/s3" class="demo-cta">
+      <svg viewBox="0 0 24 24"><polygon points="5 3 19 12 5 21 5 3"/></svg>
+      Try the live S3 translator
+    </a>
+  </div>
+
+  <footer>SMU IS469 Gen AI with LLMs &middot; Final Group Project</footer>
+
+</div>
+
+<script>
+// ─── Scroll animations ───
+const observer = new IntersectionObserver((entries) => {
+  entries.forEach(e => { if (e.isIntersecting) e.target.classList.add('visible'); });
+}, { threshold: 0.15 });
+document.querySelectorAll('.anim').forEach(el => observer.observe(el));
+
+// ─── Grouped Bar: S0 vs S1 ───
+(function() {
+  const svg = document.getElementById('groupedBar');
+  const metrics = [
+    { label: 'BLEU', s0: 16.29, s1: 17.64, max: 25 },
+    { label: 'chrF++', s0: 12.76, s1: 12.91, max: 20 },
+    { label: 'COMET', s0: 0.7291, s1: 0.7303, max: 1 },
+    { label: 'Term Acc', s0: 0.1463, s1: 0.1454, max: 0.3 },
+  ];
+  const ox = 90, oy = 30, w = 560, h = 140;
+  const gap = w / metrics.length;
+  const bw = 28;
+
+  let html = '';
+  // grid lines
+  for (let i = 0; i <= 4; i++) {
+    const y = oy + (h / 4) * i;
+    html += `<line x1="${ox}" y1="${y}" x2="${ox + w}" y2="${y}" stroke="#1e1e1e" stroke-width="1"/>`;
+    html += `<text x="${ox - 8}" y="${y + 3}" text-anchor="end" fill="#555" font-size="9" font-family="Geist Mono,monospace">${(100 - i * 25)}%</text>`;
+  }
+
+  metrics.forEach((m, i) => {
+    const cx = ox + gap * i + gap / 2;
+    const h0 = (m.s0 / m.max) * h;
+    const h1 = (m.s1 / m.max) * h;
+    html += `<rect x="${cx - bw - 2}" y="${oy + h - h0}" width="${bw}" height="${h0}" rx="3" fill="#555" opacity="0.7"><animate attributeName="height" from="0" to="${h0}" dur="0.6s" fill="freeze"/><animate attributeName="y" from="${oy + h}" to="${oy + h - h0}" dur="0.6s" fill="freeze"/></rect>`;
+    html += `<rect x="${cx + 2}" y="${oy + h - h1}" width="${bw}" height="${h1}" rx="3" fill="#f59e0b" opacity="0.85"><animate attributeName="height" from="0" to="${h1}" dur="0.6s" fill="freeze" begin="0.1s"/><animate attributeName="y" from="${oy + h}" to="${oy + h - h1}" dur="0.6s" fill="freeze" begin="0.1s"/></rect>`;
+    html += `<text x="${cx - bw/2 - 2}" y="${oy + h - h0 - 6}" text-anchor="middle" fill="#888" font-size="9" font-family="Geist Mono,monospace">${m.label === 'COMET' || m.label === 'Term Acc' ? m.s0.toFixed(4) : m.s0}</text>`;
+    html += `<text x="${cx + bw/2 + 2}" y="${oy + h - h1 - 6}" text-anchor="middle" fill="#f59e0b" font-size="9" font-family="Geist Mono,monospace">${m.label === 'COMET' || m.label === 'Term Acc' ? m.s1.toFixed(4) : m.s1}</text>`;
+    html += `<text x="${cx}" y="${oy + h + 18}" text-anchor="middle" fill="#888" font-size="11" font-family="Inter,sans-serif" font-weight="500">${m.label}</text>`;
+  });
+
+  // legend
+  html += `<rect x="${ox}" y="${oy - 18}" width="10" height="10" rx="2" fill="#555" opacity="0.7"/>`;
+  html += `<text x="${ox + 14}" y="${oy - 9}" fill="#888" font-size="10" font-family="Inter,sans-serif">S0 Baseline</text>`;
+  html += `<rect x="${ox + 90}" y="${oy - 18}" width="10" height="10" rx="2" fill="#f59e0b" opacity="0.85"/>`;
+  html += `<text x="${ox + 104}" y="${oy - 9}" fill="#f59e0b" font-size="10" font-family="Inter,sans-serif">S1 Fine-Tuned</text>`;
+
+  svg.innerHTML = html;
+})();
+
+// (variant + radar charts removed — page focuses on S0 vs S1)
+/*REMOVED
+  const variants_REMOVED = [
+    { label: 'S0', bleu: 28.62, chrf: 21.65, color: '#555' },
+    { label: 'S1', bleu: 17.64, chrf: 12.91, color: '#f59e0b' },
+    { label: 'S2', bleu: 64.91, chrf: 66.79, color: '#a855f7' },
+    { label: 'S3', bleu: 68.75, chrf: 61.1, color: '#3b82f6' },
+  ];
+  const ox = 90, oy = 40, w = 560, h = 180;
+  const gap = w / variants.length;
+  const bw = 32;
+
+  let html = '';
+  for (let i = 0; i <= 4; i++) {
+    const y = oy + (h / 4) * i;
+    const val = 80 - i * 20;
+    html += `<line x1="${ox}" y1="${y}" x2="${ox + w}" y2="${y}" stroke="#1e1e1e" stroke-width="1"/>`;
+    html += `<text x="${ox - 8}" y="${y + 3}" text-anchor="end" fill="#555" font-size="9" font-family="Geist Mono,monospace">${val}</text>`;
+  }
+
+  variants.forEach((v, i) => {
+    const cx = ox + gap * i + gap / 2;
+    const hBleu = (v.bleu / 80) * h;
+    const hChrf = (v.chrf / 80) * h;
+
+    html += `<rect x="${cx - bw - 2}" y="${oy + h - hBleu}" width="${bw}" height="${hBleu}" rx="3" fill="${v.color}" opacity="0.85"><animate attributeName="height" from="0" to="${hBleu}" dur="0.7s" fill="freeze"/><animate attributeName="y" from="${oy + h}" to="${oy + h - hBleu}" dur="0.7s" fill="freeze"/></rect>`;
+    html += `<rect x="${cx + 2}" y="${oy + h - hChrf}" width="${bw}" height="${hChrf}" rx="3" fill="${v.color}" opacity="0.45"><animate attributeName="height" from="0" to="${hChrf}" dur="0.7s" fill="freeze" begin="0.1s"/><animate attributeName="y" from="${oy + h}" to="${oy + h - hChrf}" dur="0.7s" fill="freeze" begin="0.1s"/></rect>`;
+    html += `<text x="${cx - bw/2 - 2}" y="${oy + h - hBleu - 6}" text-anchor="middle" fill="${v.color}" font-size="9" font-family="Geist Mono,monospace" font-weight="600">${v.bleu}</text>`;
+    html += `<text x="${cx + bw/2 + 2}" y="${oy + h - hChrf - 6}" text-anchor="middle" fill="${v.color}" font-size="8" font-family="Geist Mono,monospace" opacity="0.7">${v.chrf}</text>`;
+    html += `<text x="${cx}" y="${oy + h + 18}" text-anchor="middle" fill="#ededed" font-size="12" font-family="Inter,sans-serif" font-weight="600">${v.label}</text>`;
+    html += `<text x="${cx}" y="${oy + h + 32}" text-anchor="middle" fill="#555" font-size="9" font-family="Inter,sans-serif">${['Baseline','Fine-Tuned','RAG','Agentic'][i]}</text>`;
+  });
+
+  html += `<rect x="${ox}" y="${oy - 22}" width="10" height="10" rx="2" fill="#888"/>`;
+  html += `<text x="${ox + 14}" y="${oy - 13}" fill="#888" font-size="10" font-family="Inter,sans-serif">BLEU (char)</text>`;
+  html += `<rect x="${ox + 100}" y="${oy - 22}" width="10" height="10" rx="2" fill="#888" opacity="0.45"/>`;
+  html += `<text x="${ox + 114}" y="${oy - 13}" fill="#888" font-size="10" font-family="Inter,sans-serif">chrF++</text>`;
+
+  svg.innerHTML = html;
+})();
+
+// ─── Radar Chart ───
+(function() {
+  const svg = document.getElementById('radarChart');
+  const cx = 200, cy = 180, r = 140;
+  const dims = [
+    { label: 'BLEU', s2: 0.79, s3: 0.84 },
+    { label: 'chrF++', s2: 0.83, s3: 0.76 },
+    { label: 'Coverage', s2: 0.57, s3: 0.83 },
+    { label: 'Term Acc', s2: 0.13, s3: 0.14 },
+    { label: 'Hit@K', s2: 1.0, s3: 0.73 },
+    { label: 'Error F1', s2: 0.50, s3: 0.39 },
+  ];
+  const n = dims.length;
+  const angleStep = (Math.PI * 2) / n;
+  const startAngle = -Math.PI / 2;
+
+  function pol(angle, radius) {
+    return { x: cx + Math.cos(angle) * radius, y: cy + Math.sin(angle) * radius };
+  }
+
+  let html = '';
+
+  // grid rings
+  for (let ring = 1; ring <= 4; ring++) {
+    const rr = (ring / 4) * r;
+    let pts = [];
+    for (let i = 0; i < n; i++) {
+      const p = pol(startAngle + angleStep * i, rr);
+      pts.push(`${p.x},${p.y}`);
+    }
+    html += `<polygon points="${pts.join(' ')}" fill="none" stroke="#1e1e1e" stroke-width="1"/>`;
+  }
+
+  // axis lines
+  for (let i = 0; i < n; i++) {
+    const p = pol(startAngle + angleStep * i, r);
+    html += `<line x1="${cx}" y1="${cy}" x2="${p.x}" y2="${p.y}" stroke="#1e1e1e" stroke-width="1"/>`;
+  }
+
+  // labels
+  for (let i = 0; i < n; i++) {
+    const p = pol(startAngle + angleStep * i, r + 22);
+    html += `<text x="${p.x}" y="${p.y + 4}" text-anchor="middle" fill="#888" font-size="10" font-family="Inter,sans-serif" font-weight="500">${dims[i].label}</text>`;
+  }
+
+  // S2 polygon
+  let s2pts = [];
+  for (let i = 0; i < n; i++) {
+    const p = pol(startAngle + angleStep * i, dims[i].s2 * r);
+    s2pts.push(`${p.x},${p.y}`);
+  }
+  html += `<polygon points="${s2pts.join(' ')}" fill="rgba(168,85,247,0.1)" stroke="#a855f7" stroke-width="1.5" stroke-dasharray="4,3"/>`;
+
+  // S3 polygon
+  let s3pts = [];
+  for (let i = 0; i < n; i++) {
+    const p = pol(startAngle + angleStep * i, dims[i].s3 * r);
+    s3pts.push(`${p.x},${p.y}`);
+  }
+  html += `<polygon points="${s3pts.join(' ')}" fill="rgba(59,130,246,0.12)" stroke="#3b82f6" stroke-width="2"/>`;
+
+  // dots
+  for (let i = 0; i < n; i++) {
+    const p2 = pol(startAngle + angleStep * i, dims[i].s2 * r);
+    html += `<circle cx="${p2.x}" cy="${p2.y}" r="3" fill="#a855f7"/>`;
+    const p3 = pol(startAngle + angleStep * i, dims[i].s3 * r);
+    html += `<circle cx="${p3.x}" cy="${p3.y}" r="3.5" fill="#3b82f6"/>`;
+  }
+
+  // legend
+  html += `<line x1="80" y1="365" x2="100" y2="365" stroke="#a855f7" stroke-width="1.5" stroke-dasharray="4,3"/>`;
+  html += `<text x="106" y="368" fill="#a855f7" font-size="10" font-family="Inter,sans-serif">S2 RAG + Reranker</text>`;
+  html += `<line x1="240" y1="365" x2="260" y2="365" stroke="#3b82f6" stroke-width="2"/>`;
+  html += `<text x="266" y="368" fill="#3b82f6" font-size="10" font-family="Inter,sans-serif">S3 Agentic RAG</text>`;
+
+  svg.innerHTML = html;
+})();
+REMOVED*/
+</script>
+</body>
+</html>

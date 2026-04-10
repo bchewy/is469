@@ -1,0 +1,717 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Research — EN→JA Translation</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Geist+Mono:wght@300;400;500;600&family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+<style>
+*, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+:root {
+  --bg: #0a0a0a; --card: #111; --border: #1e1e1e; --border-light: #2a2a2a;
+  --fg: #ededed; --fg-secondary: #888; --fg-tertiary: #555;
+  --blue: #3b82f6; --green: #22c55e; --amber: #f59e0b; --purple: #a855f7;
+  --cyan: #06b6d4; --rose: #f43f5e;
+  --radius: 12px;
+  --sans: 'Inter', -apple-system, sans-serif;
+  --mono: 'Geist Mono', 'SF Mono', monospace;
+}
+html { font-size: 14px; }
+body { background: var(--bg); color: var(--fg); font-family: var(--sans); min-height: 100vh; -webkit-font-smoothing: antialiased; }
+::selection { background: rgba(255,255,255,0.15); }
+a { color: inherit; text-decoration: none; }
+
+nav {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 0 1.5rem; height: 48px; border-bottom: 1px solid var(--border);
+  position: sticky; top: 0; background: rgba(10,10,10,0.92); backdrop-filter: blur(12px); z-index: 100;
+}
+.nav-left { display: flex; align-items: center; gap: 0.75rem; }
+.nav-title { font-size: 0.85rem; font-weight: 600; letter-spacing: -0.01em; }
+.nav-sep { color: var(--fg-tertiary); font-size: 1.1rem; font-weight: 200; }
+.nav-subtitle { font-size: 0.85rem; color: var(--fg-secondary); font-weight: 400; }
+.nav-links { display: flex; gap: 0.25rem; }
+.nav-link {
+  font-size: 0.75rem; color: var(--fg-tertiary); padding: 0.3rem 0.6rem;
+  border-radius: 6px; font-weight: 500; transition: all 0.15s;
+}
+.nav-link:hover { color: var(--fg-secondary); background: rgba(255,255,255,0.05); }
+.nav-link.active { color: var(--fg); background: rgba(255,255,255,0.08); }
+
+.container { max-width: 800px; margin: 0 auto; padding: 3rem 1.5rem 5rem; }
+
+.hero { margin-bottom: 3rem; opacity: 0; animation: fadeIn 0.5s ease forwards; }
+.hero h1 { font-size: 2rem; font-weight: 700; letter-spacing: -0.03em; margin-bottom: 0.4rem; }
+.hero p { color: var(--fg-secondary); font-size: 0.9rem; line-height: 1.6; max-width: 560px; }
+.demo-cta {
+  display: inline-flex; align-items: center; gap: 0.4rem;
+  padding: 0.45rem 1rem; border: 1px solid var(--blue); border-radius: 8px;
+  font-size: 0.75rem; font-weight: 600; color: var(--blue); transition: all 0.15s;
+  margin-top: 1rem;
+}
+.demo-cta:hover { background: rgba(59,130,246,0.1); }
+.demo-cta svg { width: 12px; height: 12px; fill: none; stroke: currentColor; stroke-width: 2.5; stroke-linecap: round; }
+
+.section { margin-bottom: 3rem; }
+.section-title {
+  font-size: 0.7rem; font-weight: 600; text-transform: uppercase;
+  letter-spacing: 0.06em; color: var(--fg-tertiary); margin-bottom: 1rem;
+  display: flex; align-items: center; gap: 0.5rem;
+}
+.section-title .dot { width: 6px; height: 6px; border-radius: 50%; }
+
+.card {
+  background: var(--card); border: 1px solid var(--border); border-radius: var(--radius);
+  overflow: hidden;
+}
+.card-header {
+  padding: 0.75rem 1rem; border-bottom: 1px solid var(--border);
+  font-size: 0.75rem; color: var(--fg-secondary); font-weight: 500;
+  display: flex; align-items: center; justify-content: space-between;
+}
+
+table {
+  width: 100%; border-collapse: collapse; font-size: 0.8rem;
+}
+th {
+  text-align: left; padding: 0.55rem 1rem;
+  font-size: 0.65rem; font-weight: 600; text-transform: uppercase;
+  letter-spacing: 0.05em; color: var(--fg-tertiary);
+  border-bottom: 1px solid var(--border);
+}
+td {
+  padding: 0.55rem 1rem; border-bottom: 1px solid var(--border);
+  font-family: var(--mono); font-size: 0.8rem;
+}
+tr:last-child td { border-bottom: none; }
+td:first-child { font-family: var(--sans); color: var(--fg-secondary); font-weight: 500; }
+td:nth-child(2), td:nth-child(3), th:nth-child(2), th:nth-child(3) { text-align: right; }
+td:last-child, th:last-child { text-align: right; }
+.delta-pos { color: var(--green); }
+.delta-neg { color: var(--rose); }
+.delta-flat { color: var(--fg-tertiary); }
+
+/* ─── SVG charts ─── */
+.chart-container { padding: 1.5rem 1rem; }
+.chart-container svg { width: 100%; overflow: visible; }
+
+/* ─── radar chart ─── */
+.radar-grid { padding: 1.5rem; display: flex; justify-content: center; }
+
+/* ─── timeline ─── */
+.timeline-track {
+  position: relative;
+  padding: 1.5rem 1rem 1rem;
+}
+
+.tl-line {
+  position: absolute;
+  left: 28px;
+  top: 0;
+  bottom: 0;
+  width: 2px;
+  background: linear-gradient(to bottom, var(--green), var(--amber), var(--rose), var(--fg-tertiary));
+  border-radius: 1px;
+}
+
+.tl-node {
+  position: relative;
+  display: flex;
+  gap: 1.25rem;
+  padding: 0 0 2rem 0;
+}
+
+.tl-node:last-child { padding-bottom: 0; }
+
+.tl-marker-wrap {
+  position: relative;
+  z-index: 2;
+  flex-shrink: 0;
+  width: 56px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.3rem;
+}
+
+.tl-dot {
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  border: 2px solid var(--bg);
+  box-shadow: 0 0 0 2px var(--fg-tertiary);
+  position: relative;
+}
+
+.tl-dot::after {
+  content: '';
+  position: absolute;
+  inset: 2px;
+  border-radius: 50%;
+}
+
+.tl-node:nth-child(1) .tl-dot { box-shadow: 0 0 0 2px var(--green); }
+.tl-node:nth-child(1) .tl-dot::after { background: var(--green); }
+.tl-node:nth-child(2) .tl-dot { box-shadow: 0 0 0 2px var(--amber); }
+.tl-node:nth-child(2) .tl-dot::after { background: var(--amber); }
+.tl-node:nth-child(3) .tl-dot { box-shadow: 0 0 0 2px var(--rose); }
+.tl-node:nth-child(3) .tl-dot::after { background: var(--rose); }
+.tl-node:nth-child(4) .tl-dot { box-shadow: 0 0 0 2px var(--blue); }
+.tl-node:nth-child(4) .tl-dot::after { background: var(--blue); }
+
+.tl-phase {
+  font-family: var(--mono);
+  font-size: 0.55rem;
+  color: var(--fg-tertiary);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  font-weight: 600;
+}
+
+.tl-content {
+  flex: 1;
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 1rem 1.1rem;
+  transition: border-color 0.2s;
+}
+
+.tl-content:hover { border-color: var(--border-light); }
+
+.tl-node:nth-child(1) .tl-content { border-left: 2px solid var(--green); }
+.tl-node:nth-child(2) .tl-content { border-left: 2px solid var(--amber); }
+.tl-node:nth-child(3) .tl-content { border-left: 2px solid var(--rose); }
+.tl-node:nth-child(4) .tl-content { border-left: 2px solid var(--blue); }
+
+.tl-title {
+  font-size: 0.85rem;
+  font-weight: 600;
+  margin-bottom: 0.3rem;
+}
+
+.tl-desc {
+  font-size: 0.75rem;
+  color: var(--fg-secondary);
+  line-height: 1.55;
+}
+
+.tl-tags {
+  display: flex;
+  gap: 0.35rem;
+  margin-top: 0.6rem;
+  flex-wrap: wrap;
+}
+
+.tl-tag {
+  font-family: var(--mono);
+  font-size: 0.6rem;
+  padding: 0.15rem 0.45rem;
+  border-radius: 4px;
+  background: rgba(255,255,255,0.05);
+  color: var(--fg-tertiary);
+  font-weight: 500;
+}
+
+/* ─── insight cards ─── */
+.insights { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin-top: 1.5rem; }
+.insight {
+  background: var(--card); border: 1px solid var(--border); border-radius: var(--radius);
+  padding: 1rem;
+}
+.insight-icon {
+  width: 28px; height: 28px; border-radius: 6px; display: flex;
+  align-items: center; justify-content: center; margin-bottom: 0.6rem;
+}
+.insight-icon svg {
+  width: 14px; height: 14px; fill: none; stroke-width: 2;
+  stroke-linecap: round; stroke-linejoin: round;
+}
+.insight:nth-child(1) .insight-icon { background: rgba(59,130,246,0.12); }
+.insight:nth-child(1) .insight-icon svg { stroke: var(--blue); }
+.insight:nth-child(2) .insight-icon { background: rgba(245,158,11,0.12); }
+.insight:nth-child(2) .insight-icon svg { stroke: var(--amber); }
+.insight:nth-child(3) .insight-icon { background: rgba(244,63,94,0.12); }
+.insight:nth-child(3) .insight-icon svg { stroke: var(--rose); }
+.insight:nth-child(4) .insight-icon { background: rgba(34,197,94,0.12); }
+.insight:nth-child(4) .insight-icon svg { stroke: var(--green); }
+.insight-title { font-size: 0.8rem; font-weight: 600; margin-bottom: 0.25rem; }
+.insight-text { font-size: 0.7rem; color: var(--fg-secondary); line-height: 1.5; }
+
+footer {
+  text-align: center; padding: 2rem 0 1rem;
+  font-size: 0.7rem; color: var(--fg-tertiary);
+}
+
+.anim { opacity: 0; transform: translateY(12px); transition: opacity 0.5s ease, transform 0.5s ease; }
+.anim.visible { opacity: 1; transform: translateY(0); }
+
+@keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+
+@media (max-width: 640px) {
+  .container { padding: 2rem 1rem 3rem; }
+  .hero h1 { font-size: 1.5rem; }
+  .insights { grid-template-columns: 1fr; }
+  .tl-marker-wrap { width: 40px; }
+  .tl-line { left: 20px; }
+}
+</style>
+</head>
+<body>
+
+<nav>
+  <div class="nav-left">
+    <span class="nav-title">genai-llms</span>
+    <span class="nav-sep">/</span>
+    <span class="nav-subtitle">Research</span>
+  </div>
+  <div class="nav-links">
+    <a href="/" class="nav-link">Home</a>
+    <a href="/demo" class="nav-link">Demo</a>
+    <a href="/research" class="nav-link active">Research</a>
+  </div>
+</nav>
+
+<div class="container">
+
+  <div class="hero">
+    <h1>S0 &rarr; S1: Fine-Tuning</h1>
+    <p>Can QLoRA fine-tuning improve a small language model for English-to-Japanese translation? We adapted Qwen 2.5-0.5B-Instruct with task-specific training data and measured the impact across translation quality, terminology compliance, and training stability.</p>
+    <a href="/demo" class="demo-cta">
+      <svg viewBox="0 0 24 24"><polygon points="5 3 19 12 5 21 5 3"/></svg>
+      Try the live S3 translator
+    </a>
+  </div>
+
+  <!-- How we fine-tuned -->
+  <div class="section anim">
+    <div class="section-title"><span class="dot" style="background:var(--purple)"></span>How S1 Was Built from S0</div>
+    <div class="card">
+      <div class="card-header">QLoRA Supervised Fine-Tuning Pipeline</div>
+      <div style="padding:1.25rem;">
+        <div style="display:grid; grid-template-columns:1fr 1fr; gap:1.5rem;">
+          <div>
+            <div style="font-size:0.65rem; color:var(--fg-tertiary); text-transform:uppercase; letter-spacing:0.05em; margin-bottom:0.5rem; font-weight:600;">S0 &mdash; Base Model</div>
+            <div style="font-size:0.8rem; color:var(--fg-secondary); line-height:1.6;">
+              <strong style="color:var(--fg);">Qwen 2.5-0.5B-Instruct</strong> used as-is with a translation prompt. No task-specific adaptation. The model receives the English source and generates Japanese using only its pre-trained knowledge.
+            </div>
+          </div>
+          <div>
+            <div style="font-size:0.65rem; color:var(--fg-tertiary); text-transform:uppercase; letter-spacing:0.05em; margin-bottom:0.5rem; font-weight:600;">S1 &mdash; Fine-Tuned</div>
+            <div style="font-size:0.8rem; color:var(--fg-secondary); line-height:1.6;">
+              Same base model + <strong style="color:var(--amber);">QLoRA adapters</strong> (rank-64, alpha 64, dropout 0.05). Trained on EN-JA pairs formatted as chat-style examples. 4-bit quantized base, only adapter weights updated.
+            </div>
+          </div>
+        </div>
+        <div style="margin-top:1.25rem; padding-top:1rem; border-top:1px solid var(--border);">
+          <div style="font-size:0.65rem; color:var(--fg-tertiary); text-transform:uppercase; letter-spacing:0.05em; margin-bottom:0.5rem; font-weight:600;">Training Config</div>
+          <div style="display:flex; gap:0.5rem; flex-wrap:wrap;">
+            <span class="tl-tag">rank 64</span>
+            <span class="tl-tag">alpha 64</span>
+            <span class="tl-tag">dropout 0.05</span>
+            <span class="tl-tag">lr 2e-5</span>
+            <span class="tl-tag">batch 8</span>
+            <span class="tl-tag">max 3 epochs</span>
+            <span class="tl-tag">max seq 2048</span>
+            <span class="tl-tag">early stopping patience 2</span>
+            <span class="tl-tag">eval every 200 steps</span>
+            <span class="tl-tag">4-bit NF4 quantization</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- What the benchmarks mean -->
+  <div class="section anim">
+    <div class="section-title"><span class="dot" style="background:var(--cyan)"></span>Understanding the Benchmarks</div>
+    <div style="display:grid; grid-template-columns:1fr 1fr; gap:1rem;">
+      <div class="card" style="padding:1rem;">
+        <div style="font-size:0.8rem; font-weight:600; margin-bottom:0.35rem; color:var(--blue);">BLEU (char)</div>
+        <div style="font-size:0.75rem; color:var(--fg-secondary); line-height:1.55;">Measures character-level n-gram overlap with the reference translation. Higher means the output matches the reference more closely at the surface level. Necessary for Japanese since it has no whitespace word boundaries. However, a fluent re-phrasing can score low even if the meaning is correct.</div>
+      </div>
+      <div class="card" style="padding:1rem;">
+        <div style="font-size:0.8rem; font-weight:600; margin-bottom:0.35rem; color:var(--amber);">chrF++</div>
+        <div style="font-size:0.75rem; color:var(--fg-secondary); line-height:1.55;">Character n-gram F-score with word-level bigrams. More forgiving than BLEU for Japanese because it captures partial character matches and inflectional variation. A useful complement when BLEU is harsh on valid paraphrases.</div>
+      </div>
+      <div class="card" style="padding:1rem;">
+        <div style="font-size:0.8rem; font-weight:600; margin-bottom:0.35rem; color:var(--green);">COMET</div>
+        <div style="font-size:0.75rem; color:var(--fg-secondary); line-height:1.55;">A learned neural metric trained on human quality judgements. Evaluates whether the translation preserves the <em>meaning</em> of the source, not just surface similarity. We treat this as the most important quality metric. High COMET + low BLEU = fluent but differently phrased. Low COMET + high BLEU = copying without understanding.</div>
+      </div>
+      <div class="card" style="padding:1rem;">
+        <div style="font-size:0.8rem; font-weight:600; margin-bottom:0.35rem; color:var(--rose);">Terminology Accuracy</div>
+        <div style="font-size:0.75rem; color:var(--fg-secondary); line-height:1.55;">Checks whether the approved glossary term appears in the output exactly where expected. A translation can sound fluent while using the wrong term for a domain concept. This metric catches that gap &mdash; and it&rsquo;s where fine-tuning consistently failed to improve.</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- S0 vs S1 Benchmark -->
+  <div class="section anim">
+    <div class="section-title"><span class="dot" style="background:var(--blue)"></span>S0 vs S1 Benchmark &mdash; test_v1</div>
+    <div class="card">
+      <div class="card-header">
+        <span>4,254 samples &middot; Qwen 2.5-0.5B-Instruct</span>
+        <span style="font-family:var(--mono);color:var(--fg-tertiary)">test_v1.jsonl</span>
+      </div>
+      <div style="padding:0;">
+        <table>
+          <thead><tr><th>Metric</th><th>S0</th><th>S1</th><th>Delta</th></tr></thead>
+          <tbody>
+            <tr><td>Avg Latency (ms)</td><td>169.8</td><td>258.6</td><td class="delta-neg">+88.8</td></tr>
+            <tr><td>BLEU (char)</td><td>16.29</td><td>17.64</td><td class="delta-pos">+1.35</td></tr>
+            <tr><td>chrF++</td><td>12.76</td><td>12.91</td><td class="delta-pos">+0.15</td></tr>
+            <tr><td>COMET</td><td>0.7291</td><td>0.7303</td><td class="delta-flat">+0.0012</td></tr>
+            <tr><td>Terminology Accuracy</td><td>0.1463</td><td>0.1454</td><td class="delta-neg">-0.0009</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <!-- Grouped Bar Chart: S0 vs S1 Metrics -->
+  <div class="section anim">
+    <div class="section-title"><span class="dot" style="background:var(--amber)"></span>S0 vs S1 Side by Side</div>
+    <div class="card">
+      <div class="card-header">Normalized scores &middot; higher is better</div>
+      <div class="chart-container">
+        <svg id="groupedBar" viewBox="0 0 700 220"></svg>
+      </div>
+    </div>
+  </div>
+
+  <!-- Dev Runs Comparison -->
+  <div class="section anim">
+    <div class="section-title"><span class="dot" style="background:var(--purple)"></span>Training Runs &mdash; dev_v2</div>
+    <div class="card" style="margin-bottom:1rem;">
+      <div class="card-header">
+        <span>Run A &mdash; 2,668 dev samples</span>
+        <span style="font-family:var(--mono);color:var(--green)">best run</span>
+      </div>
+      <div style="padding:0;">
+        <table>
+          <thead><tr><th>Metric</th><th>S0 Dev</th><th>S1 Run A</th><th>Delta</th></tr></thead>
+          <tbody>
+            <tr><td>BLEU (char)</td><td>22.06</td><td>24.23</td><td class="delta-pos">+2.17</td></tr>
+            <tr><td>chrF++</td><td>17.05</td><td>17.66</td><td class="delta-pos">+0.61</td></tr>
+            <tr><td>COMET</td><td>0.7807</td><td>0.7858</td><td class="delta-pos">+0.0051</td></tr>
+            <tr><td>Terminology Accuracy</td><td>0.2162</td><td>0.2095</td><td class="delta-neg">-0.0067</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+    <div class="card">
+      <div class="card-header">
+        <span>Run B &mdash; 2,668 dev samples</span>
+        <span style="font-family:var(--mono);color:var(--fg-tertiary)">conservative LR</span>
+      </div>
+      <div style="padding:0;">
+        <table>
+          <thead><tr><th>Metric</th><th>S0 Dev</th><th>S1 Run B</th><th>Delta</th></tr></thead>
+          <tbody>
+            <tr><td>BLEU (char)</td><td>22.06</td><td>23.24</td><td class="delta-pos">+1.18</td></tr>
+            <tr><td>chrF++</td><td>17.05</td><td>17.21</td><td class="delta-pos">+0.16</td></tr>
+            <tr><td>COMET</td><td>0.7807</td><td>0.7816</td><td class="delta-flat">+0.0009</td></tr>
+            <tr><td>Terminology Accuracy</td><td>0.2162</td><td>0.2141</td><td class="delta-neg">-0.0021</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <!-- What We Learned -->
+  <div class="section anim">
+    <div class="section-title"><span class="dot" style="background:var(--cyan)"></span>What We Learned</div>
+    <div class="card" style="padding:1.25rem;">
+      <div style="font-size:0.85rem; line-height:1.7; color:var(--fg-secondary);">
+        <p style="margin-bottom:1rem;"><strong style="color:var(--fg);">Fine-tuning works, but with limits.</strong> S1 consistently improved BLEU and chrF++ over S0, showing the model learned translation-specific patterns from the training data. The best run (Run A) gained +2.17 BLEU on dev, confirming that QLoRA can adapt even a 0.5B model.</p>
+        <p style="margin-bottom:1rem;"><strong style="color:var(--fg);">Meaning preservation barely moved.</strong> COMET, our primary quality metric, improved by only +0.0012 on test. This means the fine-tuned model produces outputs that look more like the references but don&rsquo;t actually convey meaning more accurately. The model is learning surface patterns, not deeper understanding.</p>
+        <p style="margin-bottom:1rem;"><strong style="color:var(--rose);">Terminology accuracy declined in every run.</strong> This was the most important finding. Fine-tuning on general translation pairs did not teach the model to use approved glossary terms. In fact, it made it slightly worse (-0.0009 to -0.0067). The model learned general translation fluency but not domain-specific constraints.</p>
+        <p><strong style="color:var(--amber);">Small models are fragile at scale.</strong> Run B with a lower learning rate (3e-6) developed NaN instability at later checkpoints. The 0.5B model often starts training normally but breaks down if pushed too long. Conservative settings with early stopping are essential.</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- Timeline -->
+  <div class="section anim">
+    <div class="section-title"><span class="dot" style="background:var(--rose)"></span>Project Timeline</div>
+    <div class="timeline-track">
+      <div class="tl-line"></div>
+
+      <div class="tl-node">
+        <div class="tl-marker-wrap">
+          <div class="tl-dot"></div>
+          <span class="tl-phase">Phase 1</span>
+        </div>
+        <div class="tl-content">
+          <div class="tl-title">Baseline &amp; Fine-Tuning</div>
+          <div class="tl-desc">Established S0 prompt-only baseline with Qwen 2.5-0.5B. Applied QLoRA fine-tuning with rank-64 adapters, producing stable S1 with small but consistent BLEU gains.</div>
+          <div class="tl-tags">
+            <span class="tl-tag">Qwen 2.5-0.5B</span>
+            <span class="tl-tag">QLoRA r64</span>
+            <span class="tl-tag">lr 2e-5</span>
+            <span class="tl-tag">4,254 samples</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="tl-node">
+        <div class="tl-marker-wrap">
+          <div class="tl-dot"></div>
+          <span class="tl-phase">Phase 2</span>
+        </div>
+        <div class="tl-content">
+          <div class="tl-title">Training Iteration</div>
+          <div class="tl-desc">Run A achieved best dev metrics (BLEU +2.17). Run B with conservative lr 3e-6 underperformed and developed late NaN instability. Terminology accuracy declined in both runs.</div>
+          <div class="tl-tags">
+            <span class="tl-tag">Run A: best</span>
+            <span class="tl-tag">Run B: NaN</span>
+            <span class="tl-tag">term acc -0.007</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="tl-node">
+        <div class="tl-marker-wrap">
+          <div class="tl-dot"></div>
+          <span class="tl-phase">Phase 3</span>
+        </div>
+        <div class="tl-content">
+          <div class="tl-title">RAG Integration</div>
+          <div class="tl-desc">Built S2 with weighted multi-strata retrieval from AWS S3 Vectors (glossary, TM, style guide, grammar). Added cross-encoder reranking. BLEU jumped to 64.91 but COMET dropped to 0.6679.</div>
+          <div class="tl-tags">
+            <span class="tl-tag">S3 Vectors</span>
+            <span class="tl-tag">BAAI reranker</span>
+            <span class="tl-tag">46K chunks</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="tl-node">
+        <div class="tl-marker-wrap">
+          <div class="tl-dot"></div>
+          <span class="tl-phase">Phase 4</span>
+        </div>
+        <div class="tl-content">
+          <div class="tl-title">Agentic RAG with Claude Sonnet 4.6</div>
+          <div class="tl-desc">Pivoted to SOTA model via OpenRouter. Built ReAct workflow with autonomous tool use, self-reflection gate, and critic scoring. Achieved BLEU 68.75 — highest across all variants.</div>
+          <div class="tl-tags">
+            <span class="tl-tag">Claude Sonnet 4.6</span>
+            <span class="tl-tag">ReAct</span>
+            <span class="tl-tag">tool use</span>
+            <span class="tl-tag">ElevenLabs TTS</span>
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- Key Findings -->
+  <div class="section anim">
+    <div class="section-title"><span class="dot" style="background:var(--green)"></span>Key Findings</div>
+    <div class="insights">
+      <div class="insight">
+        <div class="insight-icon"><svg viewBox="0 0 24 24"><path d="M12 2v20M2 12h20"/></svg></div>
+        <div class="insight-title">Small but real gains</div>
+        <div class="insight-text">Fine-tuning improved BLEU and chrF++ consistently, but COMET gains were marginal (+0.0012 on test).</div>
+      </div>
+      <div class="insight">
+        <div class="insight-icon"><svg viewBox="0 0 24 24"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><path d="M12 9v4M12 17h.01"/></svg></div>
+        <div class="insight-title">Terminology gap persists</div>
+        <div class="insight-text">Fine-tuning did not improve glossary compliance. Accuracy dropped slightly in every run (-0.0009 to -0.0067).</div>
+      </div>
+      <div class="insight">
+        <div class="insight-icon"><svg viewBox="0 0 24 24"><path d="M18 6L6 18M6 6l12 12"/></svg></div>
+        <div class="insight-title">Training instability at 0.5B</div>
+        <div class="insight-text">Longer runs are prone to late NaN events. Shorter, carefully monitored runs with early stopping are safer.</div>
+      </div>
+      <div class="insight">
+        <div class="insight-icon"><svg viewBox="0 0 24 24"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><path d="M22 4L12 14.01l-3-3"/></svg></div>
+        <div class="insight-title">Agentic approach wins</div>
+        <div class="insight-text">S3 with Claude Sonnet 4.6 achieved BLEU 68.75 vs S1's 17.64 — a fundamentally different capability level.</div>
+      </div>
+    </div>
+  </div>
+
+  <div style="text-align:center; margin-top:2rem;">
+    <a href="/demo" class="demo-cta">
+      <svg viewBox="0 0 24 24"><polygon points="5 3 19 12 5 21 5 3"/></svg>
+      Try the live S3 translator
+    </a>
+  </div>
+
+  <footer>SMU IS469 Gen AI with LLMs &middot; Final Group Project</footer>
+
+</div>
+
+<script>
+// ─── Scroll animations ───
+const observer = new IntersectionObserver((entries) => {
+  entries.forEach(e => { if (e.isIntersecting) e.target.classList.add('visible'); });
+}, { threshold: 0.15 });
+document.querySelectorAll('.anim').forEach(el => observer.observe(el));
+
+// ─── Grouped Bar: S0 vs S1 ───
+(function() {
+  const svg = document.getElementById('groupedBar');
+  const metrics = [
+    { label: 'BLEU', s0: 16.29, s1: 17.64, max: 25 },
+    { label: 'chrF++', s0: 12.76, s1: 12.91, max: 20 },
+    { label: 'COMET', s0: 0.7291, s1: 0.7303, max: 1 },
+    { label: 'Term Acc', s0: 0.1463, s1: 0.1454, max: 0.3 },
+  ];
+  const ox = 90, oy = 30, w = 560, h = 140;
+  const gap = w / metrics.length;
+  const bw = 28;
+
+  let html = '';
+  // grid lines
+  for (let i = 0; i <= 4; i++) {
+    const y = oy + (h / 4) * i;
+    html += `<line x1="${ox}" y1="${y}" x2="${ox + w}" y2="${y}" stroke="#1e1e1e" stroke-width="1"/>`;
+    html += `<text x="${ox - 8}" y="${y + 3}" text-anchor="end" fill="#555" font-size="9" font-family="Geist Mono,monospace">${(100 - i * 25)}%</text>`;
+  }
+
+  metrics.forEach((m, i) => {
+    const cx = ox + gap * i + gap / 2;
+    const h0 = (m.s0 / m.max) * h;
+    const h1 = (m.s1 / m.max) * h;
+    html += `<rect x="${cx - bw - 2}" y="${oy + h - h0}" width="${bw}" height="${h0}" rx="3" fill="#555" opacity="0.7"><animate attributeName="height" from="0" to="${h0}" dur="0.6s" fill="freeze"/><animate attributeName="y" from="${oy + h}" to="${oy + h - h0}" dur="0.6s" fill="freeze"/></rect>`;
+    html += `<rect x="${cx + 2}" y="${oy + h - h1}" width="${bw}" height="${h1}" rx="3" fill="#f59e0b" opacity="0.85"><animate attributeName="height" from="0" to="${h1}" dur="0.6s" fill="freeze" begin="0.1s"/><animate attributeName="y" from="${oy + h}" to="${oy + h - h1}" dur="0.6s" fill="freeze" begin="0.1s"/></rect>`;
+    html += `<text x="${cx - bw/2 - 2}" y="${oy + h - h0 - 6}" text-anchor="middle" fill="#888" font-size="9" font-family="Geist Mono,monospace">${m.label === 'COMET' || m.label === 'Term Acc' ? m.s0.toFixed(4) : m.s0}</text>`;
+    html += `<text x="${cx + bw/2 + 2}" y="${oy + h - h1 - 6}" text-anchor="middle" fill="#f59e0b" font-size="9" font-family="Geist Mono,monospace">${m.label === 'COMET' || m.label === 'Term Acc' ? m.s1.toFixed(4) : m.s1}</text>`;
+    html += `<text x="${cx}" y="${oy + h + 18}" text-anchor="middle" fill="#888" font-size="11" font-family="Inter,sans-serif" font-weight="500">${m.label}</text>`;
+  });
+
+  // legend
+  html += `<rect x="${ox}" y="${oy - 18}" width="10" height="10" rx="2" fill="#555" opacity="0.7"/>`;
+  html += `<text x="${ox + 14}" y="${oy - 9}" fill="#888" font-size="10" font-family="Inter,sans-serif">S0 Baseline</text>`;
+  html += `<rect x="${ox + 90}" y="${oy - 18}" width="10" height="10" rx="2" fill="#f59e0b" opacity="0.85"/>`;
+  html += `<text x="${ox + 104}" y="${oy - 9}" fill="#f59e0b" font-size="10" font-family="Inter,sans-serif">S1 Fine-Tuned</text>`;
+
+  svg.innerHTML = html;
+})();
+
+// (variant + radar charts removed — page focuses on S0 vs S1)
+/*REMOVED
+  const variants_REMOVED = [
+    { label: 'S0', bleu: 28.62, chrf: 21.65, color: '#555' },
+    { label: 'S1', bleu: 17.64, chrf: 12.91, color: '#f59e0b' },
+    { label: 'S2', bleu: 64.91, chrf: 66.79, color: '#a855f7' },
+    { label: 'S3', bleu: 68.75, chrf: 61.1, color: '#3b82f6' },
+  ];
+  const ox = 90, oy = 40, w = 560, h = 180;
+  const gap = w / variants.length;
+  const bw = 32;
+
+  let html = '';
+  for (let i = 0; i <= 4; i++) {
+    const y = oy + (h / 4) * i;
+    const val = 80 - i * 20;
+    html += `<line x1="${ox}" y1="${y}" x2="${ox + w}" y2="${y}" stroke="#1e1e1e" stroke-width="1"/>`;
+    html += `<text x="${ox - 8}" y="${y + 3}" text-anchor="end" fill="#555" font-size="9" font-family="Geist Mono,monospace">${val}</text>`;
+  }
+
+  variants.forEach((v, i) => {
+    const cx = ox + gap * i + gap / 2;
+    const hBleu = (v.bleu / 80) * h;
+    const hChrf = (v.chrf / 80) * h;
+
+    html += `<rect x="${cx - bw - 2}" y="${oy + h - hBleu}" width="${bw}" height="${hBleu}" rx="3" fill="${v.color}" opacity="0.85"><animate attributeName="height" from="0" to="${hBleu}" dur="0.7s" fill="freeze"/><animate attributeName="y" from="${oy + h}" to="${oy + h - hBleu}" dur="0.7s" fill="freeze"/></rect>`;
+    html += `<rect x="${cx + 2}" y="${oy + h - hChrf}" width="${bw}" height="${hChrf}" rx="3" fill="${v.color}" opacity="0.45"><animate attributeName="height" from="0" to="${hChrf}" dur="0.7s" fill="freeze" begin="0.1s"/><animate attributeName="y" from="${oy + h}" to="${oy + h - hChrf}" dur="0.7s" fill="freeze" begin="0.1s"/></rect>`;
+    html += `<text x="${cx - bw/2 - 2}" y="${oy + h - hBleu - 6}" text-anchor="middle" fill="${v.color}" font-size="9" font-family="Geist Mono,monospace" font-weight="600">${v.bleu}</text>`;
+    html += `<text x="${cx + bw/2 + 2}" y="${oy + h - hChrf - 6}" text-anchor="middle" fill="${v.color}" font-size="8" font-family="Geist Mono,monospace" opacity="0.7">${v.chrf}</text>`;
+    html += `<text x="${cx}" y="${oy + h + 18}" text-anchor="middle" fill="#ededed" font-size="12" font-family="Inter,sans-serif" font-weight="600">${v.label}</text>`;
+    html += `<text x="${cx}" y="${oy + h + 32}" text-anchor="middle" fill="#555" font-size="9" font-family="Inter,sans-serif">${['Baseline','Fine-Tuned','RAG','Agentic'][i]}</text>`;
+  });
+
+  html += `<rect x="${ox}" y="${oy - 22}" width="10" height="10" rx="2" fill="#888"/>`;
+  html += `<text x="${ox + 14}" y="${oy - 13}" fill="#888" font-size="10" font-family="Inter,sans-serif">BLEU (char)</text>`;
+  html += `<rect x="${ox + 100}" y="${oy - 22}" width="10" height="10" rx="2" fill="#888" opacity="0.45"/>`;
+  html += `<text x="${ox + 114}" y="${oy - 13}" fill="#888" font-size="10" font-family="Inter,sans-serif">chrF++</text>`;
+
+  svg.innerHTML = html;
+})();
+
+// ─── Radar Chart ───
+(function() {
+  const svg = document.getElementById('radarChart');
+  const cx = 200, cy = 180, r = 140;
+  const dims = [
+    { label: 'BLEU', s2: 0.79, s3: 0.84 },
+    { label: 'chrF++', s2: 0.83, s3: 0.76 },
+    { label: 'Coverage', s2: 0.57, s3: 0.83 },
+    { label: 'Term Acc', s2: 0.13, s3: 0.14 },
+    { label: 'Hit@K', s2: 1.0, s3: 0.73 },
+    { label: 'Error F1', s2: 0.50, s3: 0.39 },
+  ];
+  const n = dims.length;
+  const angleStep = (Math.PI * 2) / n;
+  const startAngle = -Math.PI / 2;
+
+  function pol(angle, radius) {
+    return { x: cx + Math.cos(angle) * radius, y: cy + Math.sin(angle) * radius };
+  }
+
+  let html = '';
+
+  // grid rings
+  for (let ring = 1; ring <= 4; ring++) {
+    const rr = (ring / 4) * r;
+    let pts = [];
+    for (let i = 0; i < n; i++) {
+      const p = pol(startAngle + angleStep * i, rr);
+      pts.push(`${p.x},${p.y}`);
+    }
+    html += `<polygon points="${pts.join(' ')}" fill="none" stroke="#1e1e1e" stroke-width="1"/>`;
+  }
+
+  // axis lines
+  for (let i = 0; i < n; i++) {
+    const p = pol(startAngle + angleStep * i, r);
+    html += `<line x1="${cx}" y1="${cy}" x2="${p.x}" y2="${p.y}" stroke="#1e1e1e" stroke-width="1"/>`;
+  }
+
+  // labels
+  for (let i = 0; i < n; i++) {
+    const p = pol(startAngle + angleStep * i, r + 22);
+    html += `<text x="${p.x}" y="${p.y + 4}" text-anchor="middle" fill="#888" font-size="10" font-family="Inter,sans-serif" font-weight="500">${dims[i].label}</text>`;
+  }
+
+  // S2 polygon
+  let s2pts = [];
+  for (let i = 0; i < n; i++) {
+    const p = pol(startAngle + angleStep * i, dims[i].s2 * r);
+    s2pts.push(`${p.x},${p.y}`);
+  }
+  html += `<polygon points="${s2pts.join(' ')}" fill="rgba(168,85,247,0.1)" stroke="#a855f7" stroke-width="1.5" stroke-dasharray="4,3"/>`;
+
+  // S3 polygon
+  let s3pts = [];
+  for (let i = 0; i < n; i++) {
+    const p = pol(startAngle + angleStep * i, dims[i].s3 * r);
+    s3pts.push(`${p.x},${p.y}`);
+  }
+  html += `<polygon points="${s3pts.join(' ')}" fill="rgba(59,130,246,0.12)" stroke="#3b82f6" stroke-width="2"/>`;
+
+  // dots
+  for (let i = 0; i < n; i++) {
+    const p2 = pol(startAngle + angleStep * i, dims[i].s2 * r);
+    html += `<circle cx="${p2.x}" cy="${p2.y}" r="3" fill="#a855f7"/>`;
+    const p3 = pol(startAngle + angleStep * i, dims[i].s3 * r);
+    html += `<circle cx="${p3.x}" cy="${p3.y}" r="3.5" fill="#3b82f6"/>`;
+  }
+
+  // legend
+  html += `<line x1="80" y1="365" x2="100" y2="365" stroke="#a855f7" stroke-width="1.5" stroke-dasharray="4,3"/>`;
+  html += `<text x="106" y="368" fill="#a855f7" font-size="10" font-family="Inter,sans-serif">S2 RAG + Reranker</text>`;
+  html += `<line x1="240" y1="365" x2="260" y2="365" stroke="#3b82f6" stroke-width="2"/>`;
+  html += `<text x="266" y="368" fill="#3b82f6" font-size="10" font-family="Inter,sans-serif">S3 Agentic RAG</text>`;
+
+  svg.innerHTML = html;
+})();
+REMOVED*/
+</script>
+</body>
+</html>

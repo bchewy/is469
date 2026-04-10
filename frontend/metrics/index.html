@@ -1,0 +1,441 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Metrics — EN→JA Translation</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Geist+Mono:wght@300;400;500;600;700;800&family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+<style>
+*,*::before,*::after{margin:0;padding:0;box-sizing:border-box}
+:root{
+  --bg:#0a0a0a;--card:#111;--card2:#0d0d0d;--border:#1a1a1a;--border2:#222;
+  --fg:#ededed;--fg2:#999;--fg3:#555;--fg4:#333;
+  --blue:#3b82f6;--green:#22c55e;--amber:#f59e0b;--purple:#a855f7;--cyan:#06b6d4;--rose:#f43f5e;
+  --r:12px;--r2:8px;
+  --sans:'Inter',-apple-system,sans-serif;--mono:'Geist Mono','SF Mono',monospace;
+  --s0:#555;--s1:#f59e0b;--s2:#a855f7;--s3:#3b82f6;
+}
+html{font-size:14px}
+body{background:var(--bg);color:var(--fg);font-family:var(--sans);min-height:100vh;-webkit-font-smoothing:antialiased}
+::selection{background:rgba(255,255,255,.12)}
+a{color:inherit;text-decoration:none}
+
+nav{display:flex;align-items:center;justify-content:space-between;padding:0 1.5rem;height:48px;border-bottom:1px solid var(--border);position:sticky;top:0;background:rgba(10,10,10,.94);backdrop-filter:blur(12px);z-index:100}
+.nav-left{display:flex;align-items:center;gap:.75rem}
+.nav-title{font-size:.85rem;font-weight:600;letter-spacing:-.01em}
+.nav-sep{color:var(--fg3);font-size:1.1rem;font-weight:200}
+.nav-subtitle{font-size:.85rem;color:var(--fg2);font-weight:400}
+.nav-links{display:flex;gap:.25rem}
+.nav-link{font-size:.75rem;color:var(--fg3);padding:.3rem .6rem;border-radius:6px;font-weight:500;transition:all .15s}
+.nav-link:hover{color:var(--fg2);background:rgba(255,255,255,.05)}
+.nav-link.active{color:var(--fg);background:rgba(255,255,255,.08)}
+
+.wrap{max-width:1000px;margin:0 auto;padding:2.5rem 1.5rem 5rem}
+
+/* hero */
+.hero{margin-bottom:2rem}
+.hero h1{font-size:2rem;font-weight:700;letter-spacing:-.04em;margin-bottom:.3rem}
+.hero p{color:var(--fg2);font-size:.85rem;line-height:1.5}
+
+/* top cards */
+.top-cards{display:grid;grid-template-columns:repeat(4,1fr);gap:.75rem;margin-bottom:2.5rem}
+.top-card{background:var(--card);border:1px solid var(--border);border-radius:var(--r);padding:1rem 1.1rem;position:relative;overflow:hidden;transition:border-color .2s}
+.top-card:hover{border-color:var(--border2)}
+.top-card::after{content:'';position:absolute;top:0;left:0;right:0;height:2px}
+.top-card:nth-child(1)::after{background:var(--purple)}
+.top-card:nth-child(2)::after{background:var(--purple)}
+.top-card:nth-child(3)::after{background:var(--blue)}
+.top-card:nth-child(4)::after{background:var(--purple)}
+.tc-label{font-size:.6rem;color:var(--fg3);text-transform:uppercase;letter-spacing:.06em;font-weight:600;margin-bottom:.5rem}
+.tc-val{font-family:var(--mono);font-size:1.8rem;font-weight:800;letter-spacing:-.03em;line-height:1}
+.tc-variant{font-family:var(--mono);font-size:.6rem;font-weight:600;margin-top:.4rem;text-transform:uppercase;letter-spacing:.05em}
+
+/* sections */
+.sec{margin-bottom:2.5rem}
+.sec-head{font-size:.65rem;font-weight:600;text-transform:uppercase;letter-spacing:.06em;color:var(--fg3);margin-bottom:.75rem;display:flex;align-items:center;gap:.5rem}
+.sec-head .dot{width:6px;height:6px;border-radius:50%;flex-shrink:0}
+.card{background:var(--card);border:1px solid var(--border);border-radius:var(--r);overflow:hidden}
+.card-head{padding:.6rem 1rem;border-bottom:1px solid var(--border);font-size:.7rem;color:var(--fg2);font-weight:500;display:flex;align-items:center;justify-content:space-between}
+.chart-wrap{padding:1.25rem 1rem}
+.chart-wrap svg{width:100%;overflow:visible}
+
+/* legend */
+.legend{display:flex;gap:1rem;flex-wrap:wrap;padding:.5rem 1rem .75rem}
+.leg-item{display:flex;align-items:center;gap:.35rem;font-size:.65rem;color:var(--fg2);font-weight:500}
+.leg-dot{width:8px;height:8px;border-radius:2px;flex-shrink:0}
+
+/* compare grid */
+.cmp-grid{display:grid;grid-template-columns:1fr 1fr;gap:.75rem}
+.cmp-card{background:var(--card);border:1px solid var(--border);border-radius:var(--r);padding:1rem}
+.cmp-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:.75rem}
+.cmp-label{font-family:var(--mono);font-size:.7rem;font-weight:700;text-transform:uppercase;letter-spacing:.04em}
+.cmp-rows{display:flex;flex-direction:column;gap:.5rem}
+.cmp-row{display:flex;align-items:center;justify-content:space-between}
+.cmp-metric{font-size:.7rem;color:var(--fg2)}
+.cmp-val{font-family:var(--mono);font-size:.8rem;font-weight:600}
+
+/* full table */
+.tbl{width:100%;border-collapse:collapse;font-size:.75rem}
+.tbl th{text-align:left;padding:.5rem .75rem;font-size:.6rem;font-weight:600;text-transform:uppercase;letter-spacing:.05em;color:var(--fg3);border-bottom:1px solid var(--border)}
+.tbl td{padding:.45rem .75rem;border-bottom:1px solid var(--border);font-family:var(--mono);font-size:.75rem}
+.tbl tr:last-child td{border-bottom:none}
+.tbl td:first-child{font-family:var(--sans);color:var(--fg2);font-weight:500}
+.tbl th:not(:first-child),.tbl td:not(:first-child){text-align:right}
+.tbl .best{color:var(--green);font-weight:700}
+
+/* caveat */
+.caveat{background:var(--card2);border:1px solid var(--border);border-radius:var(--r2);padding:.75rem 1rem;font-size:.7rem;color:var(--fg3);line-height:1.5;margin-top:1.5rem;display:flex;align-items:flex-start;gap:.5rem}
+.caveat-icon{color:var(--amber);font-size:.85rem;flex-shrink:0;margin-top:.05rem}
+
+footer{text-align:center;padding:2rem 0 1rem;font-size:.65rem;color:var(--fg4)}
+
+.tl-tag{font-family:var(--mono);font-size:.6rem;padding:.15rem .45rem;border-radius:4px;background:rgba(255,255,255,.05);color:var(--fg3);font-weight:500}
+.anim{opacity:0;transform:translateY(10px);transition:opacity .45s ease,transform .45s ease}
+.anim.vis{opacity:1;transform:translateY(0)}
+
+@keyframes fadeIn{from{opacity:0}to{opacity:1}}
+
+@media(max-width:700px){
+  .top-cards{grid-template-columns:1fr 1fr}
+  .cmp-grid{grid-template-columns:1fr}
+  .wrap{padding:1.5rem 1rem 3rem}
+  .hero h1{font-size:1.4rem}
+  .tc-val{font-size:1.4rem}
+}
+</style>
+</head>
+<body>
+
+<nav>
+  <div class="nav-left">
+    <span class="nav-title">genai-llms</span>
+    <span class="nav-sep">/</span>
+    <span class="nav-subtitle">Metrics</span>
+  </div>
+  <div class="nav-links">
+    <a href="/" class="nav-link">Home</a>
+    <a href="/s0-s1" class="nav-link">S0/S1</a>
+    <a href="/s2" class="nav-link">S2</a>
+    <a href="/s3" class="nav-link">S3</a>
+    <a href="/metrics" class="nav-link active">Metrics</a>
+  </div>
+</nav>
+
+<div class="wrap">
+
+  <div class="hero" style="opacity:0;animation:fadeIn .5s ease forwards">
+    <h1>Evaluation Metrics</h1>
+    <p>Quantitative comparison across all four system variants — S0 baseline through S3 agentic RAG.</p>
+  </div>
+
+  <!-- top cards -->
+  <div class="top-cards anim">
+    <div class="top-card">
+      <div class="tc-label">Best COMET</div>
+      <div class="tc-val" style="color:var(--purple)">0.9416</div>
+      <div class="tc-variant" style="color:var(--purple)">S2 RAG</div>
+    </div>
+    <div class="top-card">
+      <div class="tc-label">Best BLEU</div>
+      <div class="tc-val" style="color:var(--purple)">64.93</div>
+      <div class="tc-variant" style="color:var(--purple)">S2 RAG</div>
+    </div>
+    <div class="top-card">
+      <div class="tc-label">Best Term Accuracy</div>
+      <div class="tc-val" style="color:var(--blue)">0.6092</div>
+      <div class="tc-variant" style="color:var(--blue)">S3 Agentic</div>
+    </div>
+    <div class="top-card">
+      <div class="tc-label">Best chrF++</div>
+      <div class="tc-val" style="color:var(--purple)">67.81</div>
+      <div class="tc-variant" style="color:var(--purple)">S2 RAG</div>
+    </div>
+  </div>
+
+  <!-- translation quality -->
+  <div class="sec anim">
+    <div class="sec-head"><span class="dot" style="background:var(--blue)"></span>Translation Quality</div>
+    <div class="card">
+      <div class="card-head"><span>BLEU, chrF++, COMET (&times;100) across all variants</span></div>
+      <div class="chart-wrap"><svg id="qualChart" viewBox="0 0 920 260"></svg></div>
+      <div class="legend">
+        <div class="leg-item"><span class="leg-dot" style="background:var(--s0)"></span>S0 Baseline</div>
+        <div class="leg-item"><span class="leg-dot" style="background:var(--s1)"></span>S1 Fine-Tuned</div>
+        <div class="leg-item"><span class="leg-dot" style="background:var(--s2)"></span>S2 RAG</div>
+        <div class="leg-item"><span class="leg-dot" style="background:var(--s3)"></span>S3 Agentic</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- COMET progression -->
+  <div class="sec anim">
+    <div class="sec-head"><span class="dot" style="background:var(--green)"></span>COMET Progression</div>
+    <div class="card">
+      <div class="card-head"><span>Semantic quality score &mdash; scale 0.6 to 1.0</span><span style="font-family:var(--mono);color:var(--fg3);font-size:.6rem">wmt22-comet-da</span></div>
+      <div class="chart-wrap"><svg id="cometChart" viewBox="0 0 920 140"></svg></div>
+    </div>
+  </div>
+
+  <!-- terminology -->
+  <div class="sec anim">
+    <div class="sec-head"><span class="dot" style="background:var(--amber)"></span>Terminology Accuracy</div>
+    <div class="card">
+      <div class="card-head"><span>Glossary term compliance rate</span></div>
+      <div class="chart-wrap"><svg id="termChart" viewBox="0 0 920 160"></svg></div>
+    </div>
+  </div>
+
+  <!-- retrieval S2 vs S3 -->
+  <div class="sec anim">
+    <div class="sec-head"><span class="dot" style="background:var(--cyan)"></span>Retrieval Metrics &mdash; S2 vs S3</div>
+    <div class="cmp-grid">
+      <div class="cmp-card" style="border-top:2px solid var(--purple)">
+        <div class="cmp-head">
+          <span class="cmp-label" style="color:var(--purple)">S2 RAG</span>
+          <span style="font-size:.6rem;color:var(--fg3);font-family:var(--mono)">499 samples</span>
+        </div>
+        <div class="cmp-rows">
+          <div class="cmp-row"><span class="cmp-metric">Hit@K</span><span class="cmp-val" style="color:var(--green)">0.998</span></div>
+          <div class="cmp-row"><span class="cmp-metric">Recall@K</span><span class="cmp-val" style="color:var(--green)">0.999</span></div>
+          <div class="cmp-row"><span class="cmp-metric">Coverage</span><span class="cmp-val">0.6121</span></div>
+          <div class="cmp-row"><span class="cmp-metric">Retrieval Latency</span><span class="cmp-val">2,241 ms</span></div>
+        </div>
+      </div>
+      <div class="cmp-card" style="border-top:2px solid var(--blue)">
+        <div class="cmp-head">
+          <span class="cmp-label" style="color:var(--blue)">S3 Agentic</span>
+          <span style="font-size:.6rem;color:var(--fg3);font-family:var(--mono)">250 samples</span>
+        </div>
+        <div class="cmp-rows">
+          <div class="cmp-row"><span class="cmp-metric">Hit@K</span><span class="cmp-val">0.2209</span></div>
+          <div class="cmp-row"><span class="cmp-metric">Recall@K</span><span class="cmp-val">0.2239</span></div>
+          <div class="cmp-row"><span class="cmp-metric">Coverage</span><span class="cmp-val" style="color:var(--green)">0.8294</span></div>
+          <div class="cmp-row"><span class="cmp-metric">Retrieval Latency</span><span class="cmp-val" style="color:var(--green)">566.6 ms</span></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- error detection -->
+  <div class="sec anim">
+    <div class="sec-head"><span class="dot" style="background:var(--rose)"></span>Error Detection &mdash; S2 vs S3</div>
+    <div class="cmp-grid">
+      <div class="cmp-card" style="border-top:2px solid var(--purple)">
+        <div class="cmp-head"><span class="cmp-label" style="color:var(--purple)">S2</span></div>
+        <div class="cmp-rows">
+          <div class="cmp-row"><span class="cmp-metric">Binary F1</span><span class="cmp-val" style="color:var(--green)">0.5254</span></div>
+          <div class="cmp-row"><span class="cmp-metric">Category Macro F1</span><span class="cmp-val" style="color:var(--rose)">0.0</span></div>
+        </div>
+      </div>
+      <div class="cmp-card" style="border-top:2px solid var(--blue)">
+        <div class="cmp-head"><span class="cmp-label" style="color:var(--blue)">S3</span></div>
+        <div class="cmp-rows">
+          <div class="cmp-row"><span class="cmp-metric">Binary F1</span><span class="cmp-val">0.3502</span></div>
+          <div class="cmp-row"><span class="cmp-metric">Category Macro F1</span><span class="cmp-val" style="color:var(--green)">0.0866</span></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- latency -->
+  <div class="sec anim">
+    <div class="sec-head"><span class="dot" style="background:var(--amber)"></span>Latency &amp; Speed</div>
+    <div class="card">
+      <div class="card-head"><span>Average latency per sample (ms)</span><span style="font-size:.6rem;color:var(--fg3)">lower is better</span></div>
+      <div class="chart-wrap"><svg id="latChart" viewBox="0 0 920 160"></svg></div>
+    </div>
+  </div>
+
+  <!-- full table -->
+  <div class="sec anim">
+    <div class="sec-head"><span class="dot" style="background:var(--fg3)"></span>Complete Results Table</div>
+    <div class="card">
+      <div style="overflow-x:auto;padding:0">
+        <table class="tbl">
+          <thead>
+            <tr><th>Metric</th><th>S0</th><th>S1</th><th>S2</th><th>S3</th></tr>
+          </thead>
+          <tbody>
+            <tr><td>Num Samples</td><td>4254</td><td>4254</td><td>499</td><td>250</td></tr>
+            <tr><td>BLEU (char)</td><td>16.29</td><td>17.64</td><td class="best">64.93</td><td>46.45</td></tr>
+            <tr><td>chrF++</td><td>12.76</td><td>12.91</td><td class="best">67.81</td><td>36.8</td></tr>
+            <tr><td>COMET</td><td>0.7291</td><td>0.7303</td><td class="best">0.9416</td><td>0.9284</td></tr>
+            <tr><td>Term Accuracy</td><td>0.2125</td><td>0.2257</td><td>0.1033</td><td class="best">0.6092</td></tr>
+            <tr><td>Avg Retrieval (ms)</td><td>&mdash;</td><td>&mdash;</td><td>2241</td><td class="best">566.6</td></tr>
+            <tr><td>Coverage Score</td><td>&mdash;</td><td>&mdash;</td><td>0.6121</td><td class="best">0.8294</td></tr>
+            <tr><td>Retrieval Hit@K</td><td>&mdash;</td><td>&mdash;</td><td class="best">0.998</td><td>0.2209</td></tr>
+            <tr><td>Retrieval Recall@K</td><td>&mdash;</td><td>&mdash;</td><td class="best">0.999</td><td>0.2239</td></tr>
+            <tr><td>Error Binary F1</td><td>&mdash;</td><td>&mdash;</td><td class="best">0.5254</td><td>0.3502</td></tr>
+            <tr><td>Error Cat Macro F1</td><td>&mdash;</td><td>&mdash;</td><td>0.0</td><td class="best">0.0866</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <div class="caveat">
+      <span class="caveat-icon">&#9888;</span>
+      <span><strong style="color:var(--fg2)">Sample size caveat:</strong> S0 and S1 were evaluated on 4,254 samples (test_v1), S2 on 499 samples, and S3 on 250 samples. Cross-column comparisons should be interpreted cautiously due to different evaluation set sizes and compositions.</span>
+    </div>
+
+    <div class="caveat" style="margin-top:.5rem;">
+      <span class="caveat-icon" style="color:var(--purple)">&#9432;</span>
+      <span><strong style="color:var(--fg2)">Why do terminology sample counts vary so much?</strong> The glossary CSV originally contained 526 entries, but ~200 of those were contaminated rows with garbage Japanese values scraped from web pages (e.g. &ldquo;sign&rdquo;, &ldquo;live&rdquo;, &ldquo;business&rdquo; mapped to meaningless strings). After filtering to only clean, domain-specific tech terms (password, login, account, settings, etc.), the glossary dropped to ~320 curated entries. These real terms appear far less often in general-domain test sentences (Tatoeba, JParaCrawl), so fewer sentences qualify as terminology samples. The lower count is the honest number &mdash; the higher counts in earlier runs were inflated by noise from the contaminated glossary.</span>
+    </div>
+
+    <div class="caveat" style="margin-top:.5rem;">
+      <span class="caveat-icon" style="color:var(--blue)">&#9432;</span>
+      <span><strong style="color:var(--fg2)">Domain mismatch note:</strong> Our glossary is built around tech/UI terminology (password, settings, download, etc.), but the test set draws from general-domain corpora. This means many test sentences simply don&rsquo;t contain any glossary terms. Despite this mismatch, S3&rsquo;s terminology accuracy (0.6092) is still the highest across all variants &mdash; when a glossary term does appear, the agentic pipeline uses the approved form more reliably than any other system.</span>
+    </div>
+  </div>
+
+  <!-- Conclusion -->
+  <div class="sec anim" style="margin-top:3rem;">
+    <div class="sec-head"><span class="dot" style="background:var(--green)"></span>Conclusion</div>
+    <div class="card" style="border-top:2px solid var(--green);padding:1.25rem;">
+
+      <div style="display:flex;flex-direction:column;gap:.6rem;margin-bottom:1.25rem;">
+        <div style="display:flex;gap:.6rem;align-items:center;">
+          <span style="font-family:var(--mono);font-size:.6rem;font-weight:700;color:#555;background:rgba(85,85,85,.15);padding:.2rem .4rem;border-radius:4px;">S0/S1</span>
+          <span style="font-size:.8rem;color:var(--fg2);">Fine-tuning a 0.5B model gave marginal gains. COMET +0.0012. Not enough.</span>
+        </div>
+        <div style="display:flex;gap:.6rem;align-items:center;">
+          <span style="font-family:var(--mono);font-size:.6rem;font-weight:700;color:var(--purple);background:rgba(168,85,247,.15);padding:.2rem .4rem;border-radius:4px;">S2</span>
+          <span style="font-size:.8rem;color:var(--fg2);">Retrieval was the biggest jump. COMET 0.73 &rarr; 0.94. Showing good examples beats memorisation.</span>
+        </div>
+        <div style="display:flex;gap:.6rem;align-items:center;">
+          <span style="font-family:var(--mono);font-size:.6rem;font-weight:700;color:var(--blue);background:rgba(59,130,246,.15);padding:.2rem .4rem;border-radius:4px;">S3</span>
+          <span style="font-size:.8rem;color:var(--fg2);">Agentic loop solved terminology. 6&times; better term accuracy than S2. Slower, but more reliable.</span>
+        </div>
+      </div>
+
+      <div style="border-top:1px solid var(--border);padding-top:1rem;font-size:.8rem;color:var(--fg2);line-height:1.6;">
+        <strong style="color:var(--fg);">Retrieval and agency outperformed fine-tuning by a wide margin.</strong> The ideal production system would combine all three: fine-tuned model for fluency, retrieval for domain knowledge, agentic loop for quality assurance.
+      </div>
+
+      <div style="border-top:1px solid var(--border);padding-top:.75rem;margin-top:.75rem;">
+        <div style="font-size:.7rem;color:var(--fg3);font-weight:600;text-transform:uppercase;letter-spacing:.05em;margin-bottom:.4rem;">With more time</div>
+        <div style="display:flex;gap:.4rem;flex-wrap:wrap;">
+          <span class="tl-tag">7B+ fine-tuning</span>
+          <span class="tl-tag">combined S1+S3 pipeline</span>
+          <span class="tl-tag">domain-matched eval sets</span>
+          <span class="tl-tag">error-ID adapter</span>
+          <span class="tl-tag">S3 latency optimisation</span>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+  <footer>SMU IS469 Gen AI with LLMs &middot; Final Group Project</footer>
+
+</div>
+
+<script>
+const obs=new IntersectionObserver(e=>{e.forEach(x=>{if(x.isIntersecting)x.target.classList.add('vis')})},{threshold:.1});
+document.querySelectorAll('.anim').forEach(el=>obs.observe(el));
+
+const S=['S0','S1','S2','S3'];
+const C=['#555','#f59e0b','#a855f7','#3b82f6'];
+
+// ─── Translation Quality grouped bar ───
+(function(){
+  const svg=document.getElementById('qualChart');
+  const metrics=[
+    {label:'BLEU (char)',vals:[16.29,17.64,64.93,46.45],max:80},
+    {label:'chrF++',vals:[12.76,12.91,67.81,36.8],max:80},
+    {label:'COMET (×100)',vals:[72.91,73.03,94.16,92.84],max:100},
+  ];
+  const ox=80,oy=20,w=800,h=190,mg=metrics.length,bw=22,gg=w/mg;
+  let d='';
+  for(let i=0;i<=4;i++){
+    const y=oy+(h/4)*i,v=Math.round(100-i*25);
+    d+=`<line x1="${ox}" y1="${y}" x2="${ox+w}" y2="${y}" stroke="#1a1a1a"/>`;
+    d+=`<text x="${ox-8}" y="${y+4}" text-anchor="end" fill="#444" font-size="9" font-family="Geist Mono,monospace">${v}</text>`;
+  }
+  metrics.forEach((m,mi)=>{
+    const cx=ox+gg*mi+gg/2;
+    m.vals.forEach((v,vi)=>{
+      const bh=(v/m.max)*h;
+      const x=cx-((4*bw+12)/2)+vi*(bw+4);
+      d+=`<rect x="${x}" y="${oy+h}" width="${bw}" height="0" rx="3" fill="${C[vi]}" opacity=".85"><animate attributeName="height" to="${bh}" dur=".7s" fill="freeze" begin="${vi*.08}s"/><animate attributeName="y" to="${oy+h-bh}" dur=".7s" fill="freeze" begin="${vi*.08}s"/></rect>`;
+      d+=`<text x="${x+bw/2}" y="${oy+h-bh-5}" text-anchor="middle" fill="${C[vi]}" font-size="8" font-family="Geist Mono,monospace" font-weight="600" opacity="0"><animate attributeName="opacity" to="1" dur=".3s" fill="freeze" begin="${.7+vi*.08}s"/>${m.label==='COMET (×100)'?(v/100).toFixed(4):v}</text>`;
+    });
+    d+=`<text x="${cx}" y="${oy+h+16}" text-anchor="middle" fill="#888" font-size="11" font-family="Inter,sans-serif" font-weight="500">${m.label}</text>`;
+  });
+  svg.innerHTML=d;
+})();
+
+// ─── COMET progression lollipop ───
+(function(){
+  const svg=document.getElementById('cometChart');
+  const vals=[0.7291,0.7303,0.9416,0.9284];
+  const ox=80,oy=20,w=800,h=80,mn=0.6,mx=1.0;
+  let d='';
+  for(let i=0;i<=4;i++){
+    const x=ox+(w/4)*i,v=(mn+(mx-mn)*(i/4)).toFixed(2);
+    d+=`<line x1="${x}" y1="${oy}" x2="${x}" y2="${oy+h}" stroke="#1a1a1a"/>`;
+    d+=`<text x="${x}" y="${oy+h+14}" text-anchor="middle" fill="#444" font-size="9" font-family="Geist Mono,monospace">${v}</text>`;
+  }
+  d+=`<line x1="${ox}" y1="${oy+h/2}" x2="${ox+w}" y2="${oy+h/2}" stroke="#1a1a1a"/>`;
+  const pts=vals.map((v,i)=>{const x=ox+((v-mn)/(mx-mn))*w;const y=oy+15+i*18;return{x,y,v}});
+  for(let i=0;i<pts.length-1;i++){
+    d+=`<line x1="${pts[i].x}" y1="${pts[i].y}" x2="${pts[i+1].x}" y2="${pts[i+1].y}" stroke="#333" stroke-width="1" stroke-dasharray="3,3"/>`;
+  }
+  pts.forEach((p,i)=>{
+    d+=`<line x1="${ox}" y1="${p.y}" x2="${p.x}" y2="${p.y}" stroke="${C[i]}" stroke-width="1.5" opacity=".3"/>`;
+    d+=`<circle cx="${p.x}" cy="${p.y}" r="0" fill="${C[i]}"><animate attributeName="r" to="6" dur=".4s" fill="freeze" begin="${i*.15}s"/></circle>`;
+    d+=`<circle cx="${p.x}" cy="${p.y}" r="0" fill="var(--bg)"><animate attributeName="r" to="2.5" dur=".4s" fill="freeze" begin="${i*.15}s"/></circle>`;
+    d+=`<text x="${ox-8}" y="${p.y+4}" text-anchor="end" fill="${C[i]}" font-size="10" font-family="Geist Mono,monospace" font-weight="600">${S[i]}</text>`;
+    d+=`<text x="${p.x+10}" y="${p.y+4}" fill="${C[i]}" font-size="10" font-family="Geist Mono,monospace" font-weight="700" opacity="0"><animate attributeName="opacity" to="1" dur=".3s" fill="freeze" begin="${.4+i*.15}s"/>${p.v.toFixed(4)}</text>`;
+  });
+  svg.innerHTML=d;
+})();
+
+// ─── Terminology accuracy horizontal bars ───
+(function(){
+  const svg=document.getElementById('termChart');
+  const vals=[{l:'S0',v:0.2125,c:C[0]},{l:'S1',v:0.2257,c:C[1]},{l:'S2',v:0.1033,c:C[2]},{l:'S3',v:0.6092,c:C[3]}];
+  const ox=60,oy=10,w=820,h=130,bh=22,gap=10;
+  let d='';
+  for(let i=0;i<=5;i++){
+    const x=ox+(w/5)*i,v=(i*20);
+    d+=`<line x1="${x}" y1="${oy}" x2="${x}" y2="${oy+h}" stroke="#1a1a1a"/>`;
+    d+=`<text x="${x}" y="${oy+h+14}" text-anchor="middle" fill="#444" font-size="9" font-family="Geist Mono,monospace">${v}%</text>`;
+  }
+  vals.forEach((item,i)=>{
+    const y=oy+i*(bh+gap);
+    const bw=(item.v)*w;
+    d+=`<text x="${ox-8}" y="${y+bh/2+4}" text-anchor="end" fill="${item.c}" font-size="11" font-family="Geist Mono,monospace" font-weight="700">${item.l}</text>`;
+    d+=`<rect x="${ox}" y="${y}" width="0" height="${bh}" rx="4" fill="${item.c}" opacity=".8"><animate attributeName="width" to="${bw}" dur=".6s" fill="freeze" begin="${i*.1}s"/></rect>`;
+    d+=`<text x="${ox+bw+8}" y="${y+bh/2+4}" fill="${item.c}" font-size="10" font-family="Geist Mono,monospace" font-weight="600" opacity="0"><animate attributeName="opacity" to="1" dur=".3s" fill="freeze" begin="${.6+i*.1}s"/>${(item.v*100).toFixed(1)}%</text>`;
+  });
+  svg.innerHTML=d;
+})();
+
+// ─── Latency bars ───
+(function(){
+  const svg=document.getElementById('latChart');
+  const vals=[{l:'S0',v:169.8,c:C[0]},{l:'S1',v:258.6,c:C[1]},{l:'S2',v:8424,c:C[2]},{l:'S3',v:83746,c:C[3]}];
+  const ox=60,oy=10,w=820,h=130,bh=22,gap=10;
+  const mx=Math.max(...vals.map(x=>x.v));
+  let d='';
+  const ticks=[0,20000,40000,60000,80000];
+  ticks.forEach(t=>{
+    const x=ox+(t/mx)*w;
+    d+=`<line x1="${x}" y1="${oy}" x2="${x}" y2="${oy+h}" stroke="#1a1a1a"/>`;
+    d+=`<text x="${x}" y="${oy+h+14}" text-anchor="middle" fill="#444" font-size="8" font-family="Geist Mono,monospace">${t>=1000?(t/1000)+'s':t+'ms'}</text>`;
+  });
+  vals.forEach((item,i)=>{
+    const y=oy+i*(bh+gap);
+    const bw=Math.max((item.v/mx)*w,2);
+    d+=`<text x="${ox-8}" y="${y+bh/2+4}" text-anchor="end" fill="${item.c}" font-size="11" font-family="Geist Mono,monospace" font-weight="700">${item.l}</text>`;
+    d+=`<rect x="${ox}" y="${y}" width="0" height="${bh}" rx="4" fill="${item.c}" opacity=".7"><animate attributeName="width" to="${bw}" dur=".6s" fill="freeze" begin="${i*.1}s"/></rect>`;
+    const label=item.v>=1000?(item.v/1000).toFixed(1)+'s':item.v+'ms';
+    d+=`<text x="${ox+bw+8}" y="${y+bh/2+4}" fill="${item.c}" font-size="9" font-family="Geist Mono,monospace" font-weight="600" opacity="0"><animate attributeName="opacity" to="1" dur=".3s" fill="freeze" begin="${.6+i*.1}s"/>${label}</text>`;
+  });
+  svg.innerHTML=d;
+})();
+</script>
+</body>
+</html>

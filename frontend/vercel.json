@@ -1,0 +1,8 @@
+{
+  "cleanUrls": true,
+  "trailingSlash": false,
+  "redirects": [
+    { "source": "/demo", "destination": "/s3", "permanent": true },
+    { "source": "/research", "destination": "/s0-s1", "permanent": true }
+  ]
+}

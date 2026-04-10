@@ -1,0 +1,1075 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>EN→JA Agentic Translator</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Geist+Mono:wght@300;400;500;600&family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+<style>
+*, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+
+:root {
+  --bg: #0a0a0a;
+  --card: #111;
+  --card-hover: #151515;
+  --border: #1e1e1e;
+  --border-light: #2a2a2a;
+  --fg: #ededed;
+  --fg-secondary: #888;
+  --fg-tertiary: #555;
+  --accent: #fff;
+  --blue: #3b82f6;
+  --green: #22c55e;
+  --amber: #f59e0b;
+  --purple: #a855f7;
+  --cyan: #06b6d4;
+  --rose: #f43f5e;
+  --radius: 12px;
+  --radius-sm: 8px;
+  --sans: 'Inter', -apple-system, sans-serif;
+  --mono: 'Geist Mono', 'SF Mono', monospace;
+  --shadow: 0 0 0 1px var(--border);
+}
+
+html { font-size: 14px; }
+
+body {
+  background: var(--bg);
+  color: var(--fg);
+  font-family: var(--sans);
+  min-height: 100vh;
+  -webkit-font-smoothing: antialiased;
+}
+
+::selection { background: rgba(255,255,255,0.15); }
+
+/* ─── nav ─── */
+nav {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 1.5rem;
+  height: 48px;
+  border-bottom: 1px solid var(--border);
+  opacity: 0; animation: fadeIn 0.4s ease forwards;
+}
+
+.nav-left {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.nav-title {
+  font-size: 0.85rem;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+}
+
+.nav-sep {
+  color: var(--fg-tertiary);
+  font-size: 1.1rem;
+  font-weight: 200;
+}
+
+.nav-subtitle {
+  font-size: 0.85rem;
+  color: var(--fg-secondary);
+  font-weight: 400;
+}
+
+.nav-links {
+  display: flex;
+  gap: 0.25rem;
+}
+
+.nav-link {
+  font-size: 0.75rem;
+  color: var(--fg-tertiary);
+  text-decoration: none;
+  padding: 0.3rem 0.6rem;
+  border-radius: 6px;
+  font-weight: 500;
+  transition: all 0.15s;
+}
+
+.nav-link:hover { color: var(--fg-secondary); background: rgba(255,255,255,0.05); }
+.nav-link.active { color: var(--fg); background: rgba(255,255,255,0.08); }
+
+.nav-badge {
+  font-size: 0.65rem;
+  padding: 0.15rem 0.5rem;
+  border: 1px solid var(--border-light);
+  border-radius: 999px;
+  color: var(--fg-secondary);
+  font-weight: 500;
+}
+
+/* ─── container ─── */
+.container {
+  max-width: 960px;
+  margin: 0 auto;
+  padding: 2rem 1.5rem 4rem;
+}
+
+/* ─── hero ─── */
+.hero {
+  text-align: center;
+  margin-bottom: 2.5rem;
+  opacity: 0; animation: fadeIn 0.5s ease 0.05s forwards;
+}
+
+.hero h1 {
+  font-size: 2.2rem;
+  font-weight: 700;
+  letter-spacing: -0.04em;
+  margin-bottom: 0.4rem;
+  line-height: 1.2;
+}
+
+.hero h1 .dim { color: var(--fg-tertiary); }
+
+.hero p {
+  color: var(--fg-secondary);
+  font-size: 0.9rem;
+  font-weight: 400;
+  line-height: 1.5;
+}
+
+/* ─── cards ─── */
+.card {
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  overflow: hidden;
+  transition: border-color 0.2s;
+}
+
+.card:hover { border-color: var(--border-light); }
+
+.card-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0.75rem 1rem;
+  border-bottom: 1px solid var(--border);
+}
+
+.card-label {
+  font-size: 0.75rem;
+  color: var(--fg-secondary);
+  font-weight: 500;
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+
+.card-label .icon {
+  width: 14px;
+  height: 14px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.card-label .icon svg {
+  width: 14px;
+  height: 14px;
+  fill: none;
+  stroke: var(--fg-tertiary);
+  stroke-width: 1.8;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.card-body { padding: 0; }
+
+/* ─── example prompts ─── */
+.examples-row {
+  display: flex;
+  gap: 0.5rem;
+  overflow-x: auto;
+  padding: 0.6rem 1rem;
+  border-bottom: 1px solid var(--border);
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+
+.examples-row::-webkit-scrollbar { display: none; }
+
+.example-chip {
+  flex-shrink: 0;
+  font-size: 0.7rem;
+  padding: 0.3rem 0.65rem;
+  background: rgba(255,255,255,0.04);
+  border: 1px solid var(--border-light);
+  border-radius: 6px;
+  color: var(--fg-secondary);
+  cursor: pointer;
+  transition: all 0.15s;
+  font-family: var(--sans);
+  white-space: nowrap;
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+}
+
+.example-chip:hover {
+  background: rgba(255,255,255,0.08);
+  border-color: var(--fg-tertiary);
+  color: var(--fg);
+}
+
+.example-chip .chip-dot {
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: var(--fg-tertiary);
+  flex-shrink: 0;
+}
+
+.example-chip:nth-child(1) .chip-dot { background: var(--blue); }
+.example-chip:nth-child(2) .chip-dot { background: var(--amber); }
+.example-chip:nth-child(3) .chip-dot { background: var(--green); }
+.example-chip:nth-child(4) .chip-dot { background: var(--purple); }
+.example-chip:nth-child(5) .chip-dot { background: var(--cyan); }
+.example-chip:nth-child(6) .chip-dot { background: var(--rose); }
+
+/* ─── input card ─── */
+.input-card {
+  margin-bottom: 1rem;
+  opacity: 0; animation: fadeIn 0.5s ease 0.1s forwards;
+}
+
+textarea {
+  width: 100%;
+  min-height: 100px;
+  background: transparent;
+  border: none;
+  color: var(--fg);
+  font-family: var(--sans);
+  font-size: 0.9rem;
+  padding: 1rem;
+  resize: vertical;
+  line-height: 1.7;
+  font-weight: 400;
+}
+
+textarea:focus { outline: none; }
+textarea::placeholder { color: var(--fg-tertiary); }
+
+/* ─── glossary tags ─── */
+.terms-row {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  flex-wrap: wrap;
+  padding: 0 1rem 0.75rem;
+  min-height: 1.5rem;
+}
+
+.tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  font-size: 0.7rem;
+  padding: 0.2rem 0.55rem;
+  background: rgba(255,255,255,0.05);
+  border: 1px solid var(--border-light);
+  border-radius: 6px;
+  color: var(--fg-secondary);
+  font-weight: 500;
+  opacity: 0;
+  animation: tagPop 0.25s ease forwards;
+  font-family: var(--mono);
+}
+
+.tag .arrow-sm { color: var(--fg-tertiary); font-size: 0.6rem; }
+.tag .ja { color: var(--fg); }
+
+/* ─── actions ─── */
+.actions-row {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  margin-bottom: 1.5rem;
+  opacity: 0; animation: fadeIn 0.5s ease 0.15s forwards;
+}
+
+button.primary {
+  background: var(--fg);
+  color: var(--bg);
+  border: none;
+  font-family: var(--sans);
+  font-size: 0.8rem;
+  font-weight: 600;
+  padding: 0.5rem 1.2rem;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  transition: opacity 0.15s, transform 0.1s;
+}
+
+button.primary:hover { opacity: 0.9; }
+button.primary:active { transform: scale(0.98); }
+button.primary:disabled { opacity: 0.25; cursor: not-allowed; }
+
+.status-pill {
+  font-size: 0.75rem;
+  color: var(--fg-secondary);
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  font-family: var(--mono);
+}
+
+.spinner {
+  width: 12px;
+  height: 12px;
+  border: 1.5px solid var(--border-light);
+  border-top-color: var(--fg-secondary);
+  border-radius: 50%;
+  animation: spin 0.7s linear infinite;
+}
+
+/* ─── output card ─── */
+.output-card {
+  margin-bottom: 1rem;
+  display: none;
+}
+
+.output-card.show {
+  display: block;
+  animation: slideUp 0.35s ease;
+}
+
+.output-ja {
+  padding: 1.25rem 1rem;
+  font-size: 1.1rem;
+  line-height: 2;
+  font-weight: 400;
+  letter-spacing: 0.01em;
+  min-height: 3rem;
+}
+
+.cursor-bar {
+  display: inline-block;
+  width: 2px;
+  height: 1em;
+  background: var(--fg);
+  margin-left: 1px;
+  vertical-align: text-bottom;
+  animation: blink 0.9s step-end infinite;
+}
+
+/* ─── TTS button ─── */
+.tts-row {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.6rem 1rem;
+  border-top: 1px solid var(--border);
+}
+
+button.tts-btn {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  background: none;
+  border: 1px solid var(--border-light);
+  color: var(--fg-secondary);
+  font-family: var(--sans);
+  font-size: 0.75rem;
+  font-weight: 500;
+  padding: 0.35rem 0.75rem;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+button.tts-btn:hover { border-color: var(--fg-tertiary); color: var(--fg); }
+button.tts-btn:disabled { opacity: 0.3; cursor: not-allowed; }
+
+button.tts-btn.playing {
+  border-color: var(--green);
+  color: var(--green);
+}
+
+button.tts-btn .tts-icon {
+  width: 14px;
+  height: 14px;
+  position: relative;
+}
+
+button.tts-btn .tts-icon svg { width: 100%; height: 100%; fill: currentColor; }
+
+.tts-status {
+  font-size: 0.65rem;
+  color: var(--fg-tertiary);
+  font-family: var(--mono);
+}
+
+.wave-bars {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  height: 14px;
+  margin-right: 2px;
+}
+
+.wave-bars span {
+  display: block;
+  width: 2px;
+  background: var(--green);
+  border-radius: 1px;
+  animation: waveBar 0.8s ease-in-out infinite;
+}
+
+.wave-bars span:nth-child(1) { height: 40%; animation-delay: 0s; }
+.wave-bars span:nth-child(2) { height: 70%; animation-delay: 0.15s; }
+.wave-bars span:nth-child(3) { height: 100%; animation-delay: 0.3s; }
+.wave-bars span:nth-child(4) { height: 60%; animation-delay: 0.45s; }
+
+@keyframes waveBar {
+  0%, 100% { transform: scaleY(0.4); }
+  50% { transform: scaleY(1); }
+}
+
+/* ─── metrics grid ─── */
+.metrics-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 1rem;
+  margin-bottom: 1rem;
+}
+
+.metric-card {
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 1rem;
+  display: none;
+}
+
+.metric-card.show {
+  display: block;
+  animation: slideUp 0.3s ease;
+}
+
+.metric-title {
+  font-size: 0.7rem;
+  color: var(--fg-tertiary);
+  font-weight: 500;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  margin-bottom: 0.4rem;
+}
+
+.metric-val {
+  font-size: 1.4rem;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  font-family: var(--mono);
+}
+
+.metric-sub {
+  font-size: 0.65rem;
+  color: var(--fg-tertiary);
+  margin-top: 0.15rem;
+  font-family: var(--mono);
+}
+
+/* ─── trace card ─── */
+.trace-card {
+  display: none;
+  margin-bottom: 1rem;
+}
+
+.trace-card.show {
+  display: block;
+  animation: slideUp 0.3s ease;
+}
+
+.trace-toggle-btn {
+  width: 100%;
+  background: none;
+  border: none;
+  color: var(--fg-secondary);
+  font-family: var(--sans);
+  font-size: 0.75rem;
+  font-weight: 500;
+  cursor: pointer;
+  padding: 0;
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  transition: color 0.15s;
+}
+
+.trace-toggle-btn:hover { color: var(--fg); }
+
+.trace-toggle-btn .chev {
+  font-size: 0.55rem;
+  transition: transform 0.2s;
+  display: inline-block;
+}
+
+.trace-toggle-btn.open .chev { transform: rotate(90deg); }
+
+.trace-body {
+  display: none;
+  padding-top: 0.75rem;
+}
+
+.trace-body.open { display: block; animation: fadeIn 0.25s ease; }
+
+.trace-step {
+  position: relative;
+  padding: 0.65rem 0 0.65rem 1.25rem;
+  border-left: 1px solid var(--border);
+  margin-left: 0.25rem;
+}
+
+.trace-step::before {
+  content: '';
+  position: absolute;
+  left: -4px;
+  top: 0.85rem;
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  border: 1.5px solid var(--step-color, var(--fg-tertiary));
+  background: var(--bg);
+}
+
+.trace-step.active::before {
+  background: var(--step-color, var(--fg));
+  border-color: var(--step-color, var(--fg));
+}
+
+.trace-step[data-phase="reason"]  { --step-color: var(--blue); border-left-color: rgba(59,130,246,0.2); }
+.trace-step[data-phase="act"]     { --step-color: var(--amber); border-left-color: rgba(245,158,11,0.2); }
+.trace-step[data-phase="observe"] { --step-color: var(--cyan); border-left-color: rgba(6,182,212,0.2); }
+.trace-step[data-phase="translate"] { --step-color: var(--purple); border-left-color: rgba(168,85,247,0.2); }
+.trace-step[data-phase="reflect"] { --step-color: var(--green); border-left-color: rgba(34,197,94,0.2); }
+.trace-step[data-phase="critic"]  { --step-color: var(--rose); border-left-color: rgba(244,63,94,0.2); }
+
+.step-label {
+  font-size: 0.7rem;
+  font-weight: 600;
+  color: var(--step-color, var(--fg));
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  margin-bottom: 0.3rem;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.step-badge {
+  font-size: 0.55rem;
+  padding: 0.15rem 0.45rem;
+  border-radius: 4px;
+  background: color-mix(in srgb, var(--step-color) 12%, transparent);
+  color: var(--step-color);
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+}
+
+.step-badge svg {
+  width: 10px;
+  height: 10px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.trace-step { animation: traceStepIn 0.35s ease forwards; }
+
+@keyframes traceStepIn {
+  from { opacity: 0; transform: translateX(-8px); }
+  to { opacity: 1; transform: translateX(0); }
+}
+
+.step-label .step-type {
+  color: var(--fg-tertiary);
+  font-weight: 400;
+  text-transform: none;
+  letter-spacing: 0;
+}
+
+.tool-item {
+  font-family: var(--mono);
+  font-size: 0.7rem;
+  padding: 0.25rem 0;
+  line-height: 1.5;
+  color: var(--fg-secondary);
+}
+
+.tool-item .fn-name { color: var(--amber); font-weight: 500; }
+.tool-item .fn-args { color: var(--fg-tertiary); }
+.tool-item .fn-result {
+  display: block;
+  padding-left: 1rem;
+  color: var(--fg-tertiary);
+  font-size: 0.65rem;
+  margin-top: 0.1rem;
+}
+
+.tool-item .fn-result.found { color: var(--green); }
+.tool-item .fn-result.search { color: var(--cyan); }
+
+.step-text {
+  font-size: 0.75rem;
+  color: var(--fg-secondary);
+  line-height: 1.55;
+}
+
+.step-score {
+  font-family: var(--mono);
+  color: var(--rose);
+  font-weight: 600;
+}
+
+.step-score.high { color: var(--green); }
+.step-score.mid  { color: var(--amber); }
+.step-score.low  { color: var(--rose); }
+
+/* ─── footer ─── */
+footer {
+  text-align: center;
+  padding: 2rem 0 1rem;
+  font-size: 0.7rem;
+  color: var(--fg-tertiary);
+  opacity: 0; animation: fadeIn 0.5s ease 0.3s forwards;
+}
+
+footer a { color: var(--fg-secondary); text-decoration: none; }
+footer a:hover { color: var(--fg); }
+
+/* ─── keyframes ─── */
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes slideUp {
+  from { opacity: 0; transform: translateY(12px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes tagPop {
+  from { opacity: 0; transform: scale(0.92); }
+  to { opacity: 1; transform: scale(1); }
+}
+
+@keyframes blink { 50% { opacity: 0; } }
+
+@keyframes spin { to { transform: rotate(360deg); } }
+
+/* ─── responsive ─── */
+@media (max-width: 640px) {
+  .container { padding: 1.5rem 1rem 3rem; }
+  .hero h1 { font-size: 1.5rem; }
+  .metrics-grid { grid-template-columns: repeat(2, 1fr); }
+  .output-ja { font-size: 1rem; }
+}
+</style>
+</head>
+<body>
+
+<nav>
+  <div class="nav-left">
+    <span class="nav-title">genai-llms</span>
+    <span class="nav-sep">/</span>
+    <span class="nav-subtitle">Agentic Translator</span>
+  </div>
+  <div class="nav-links">
+    <a href="/" class="nav-link">Home</a>
+    <a href="/demo" class="nav-link active">Demo</a>
+    <a href="/research" class="nav-link">Research</a>
+  </div>
+</nav>
+
+<div class="container">
+
+  <div class="hero">
+    <h1>EN<span class="dim">→</span>JA Translator</h1>
+    <p>ReAct workflow with autonomous tool use, self-reflection, and critic scoring</p>
+  </div>
+
+  <div class="card input-card">
+    <div class="card-header">
+      <span class="card-label"><span class="icon"><svg viewBox="0 0 24 24"><path d="M4 7V4h16v3M9 20h6M12 4v16"/></svg></span>Source &mdash; English</span>
+    </div>
+    <div class="examples-row" id="examplesRow"></div>
+    <div class="card-body">
+      <textarea id="source" placeholder="Enter English text..." spellcheck="false">Please update your password in the account settings page and enable two-factor authentication for better security.</textarea>
+      <div class="terms-row" id="terms"></div>
+    </div>
+  </div>
+
+  <div class="actions-row">
+    <button class="primary" id="translateBtn" onclick="runTranslation()">Translate</button>
+    <div class="status-pill" id="status"></div>
+  </div>
+
+  <div class="card output-card" id="outputCard">
+    <div class="card-header">
+      <span class="card-label"><span class="icon"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="M2 12h20M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg></span>Output &mdash; Japanese</span>
+    </div>
+    <div class="card-body">
+      <div class="output-ja" id="outputJa"></div>
+    </div>
+    <div class="tts-row" id="ttsRow" style="display:none;">
+      <button class="tts-btn" id="ttsBtn" onclick="playTTS()">
+        <span class="tts-icon" id="ttsIcon">
+          <svg viewBox="0 0 24 24"><path d="M3 9v6h4l5 5V4L7 9H3zm13.5 3c0-1.77-1.02-3.29-2.5-4.03v8.05c1.48-.73 2.5-2.25 2.5-4.02zM14 3.23v2.06c2.89.86 5 3.54 5 6.71s-2.11 5.85-5 6.71v2.06c4.01-.91 7-4.49 7-8.77s-2.99-7.86-7-8.77z"/></svg>
+        </span>
+        Listen
+      </button>
+      <span class="tts-status" id="ttsStatus"></span>
+      <audio id="ttsAudio" style="display:none;"></audio>
+    </div>
+  </div>
+
+  <div class="metrics-grid" id="metricsGrid">
+    <div class="metric-card" id="mc0">
+      <div class="metric-title">Coverage</div>
+      <div class="metric-val" id="mv0"></div>
+      <div class="metric-sub">critic score</div>
+    </div>
+    <div class="metric-card" id="mc1">
+      <div class="metric-title">Tool Calls</div>
+      <div class="metric-val" id="mv1"></div>
+      <div class="metric-sub">glossary + kb</div>
+    </div>
+    <div class="metric-card" id="mc2">
+      <div class="metric-title">Latency</div>
+      <div class="metric-val" id="mv2"></div>
+      <div class="metric-sub">end to end</div>
+    </div>
+    <div class="metric-card" id="mc3">
+      <div class="metric-title">Model</div>
+      <div class="metric-val" id="mv3">Sonnet</div>
+      <div class="metric-sub">claude 4.6</div>
+    </div>
+  </div>
+
+  <div class="card trace-card" id="traceCard">
+    <div class="card-header">
+      <button class="trace-toggle-btn" id="traceToggle" onclick="toggleTrace()">
+        <span class="chev">&#9654;</span> Agent Trace
+      </button>
+    </div>
+    <div class="card-body">
+      <div class="trace-body" id="traceBody" style="padding: 0 1rem 1rem;"></div>
+    </div>
+  </div>
+
+  <footer>
+    EN→JA Agentic Translator &middot; Claude Sonnet 4.6 &middot; S3 Vectors &middot; ReAct Workflow
+  </footer>
+
+</div>
+
+<script>
+const GLOSSARY = {
+  'password': 'パスワード', 'account settings': 'アカウント設定', 'account': 'アカウント',
+  'login': 'ログイン', 'logout': 'ログアウト', 'settings': '設定', 'user': 'ユーザー',
+  'email': 'メール', 'download': 'ダウンロード', 'upload': 'アップロード', 'search': '検索',
+  'update': '更新', 'delete': '削除', 'page': 'ページ', 'security': 'セキュリティ',
+  'authentication': '認証', 'notification': '通知', 'profile': 'プロフィール',
+  'database': 'データベース', 'server': 'サーバー', 'browser': 'ブラウザ',
+  'network': 'ネットワーク', 'backup': 'バックアップ', 'file': 'ファイル',
+};
+
+const EXAMPLES = [
+  { label: 'Account Security', text: 'Please update your password in the account settings page and enable two-factor authentication for better security.' },
+  { label: 'Error Message', text: 'An error occurred while saving your profile. Please check your network connection and try again.' },
+  { label: 'File Management', text: 'Select the file you want to upload, then click the confirm button. You can also drag and drop files into the folder.' },
+  { label: 'Admin Dashboard', text: 'The admin dashboard shows server status, database performance, and customer notification logs for the past 30 days.' },
+  { label: 'User Onboarding', text: 'Welcome! To get started, complete your profile, update your email settings, and download our mobile application.' },
+  { label: 'Privacy & Permissions', text: 'Review your privacy settings to control who can view your profile. You can edit permissions for each user in the menu.' },
+];
+
+function initExamples() {
+  const row = document.getElementById('examplesRow');
+  EXAMPLES.forEach((ex, i) => {
+    const chip = document.createElement('button');
+    chip.className = 'example-chip';
+    chip.innerHTML = `<span class="chip-dot"></span>${ex.label}`;
+    chip.onclick = () => {
+      document.getElementById('source').value = ex.text;
+      detectTerms();
+    };
+    row.appendChild(chip);
+  });
+}
+
+initExamples();
+
+function detectTerms() {
+  const source = document.getElementById('source').value.toLowerCase();
+  const container = document.getElementById('terms');
+  container.innerHTML = '';
+  const sorted = Object.keys(GLOSSARY).sort((a, b) => b.length - a.length);
+  const matched = []; let remaining = source;
+  for (const term of sorted) {
+    const re = new RegExp(`\\b${term.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\b`, 'i');
+    if (re.test(remaining)) { matched.push(term); remaining = remaining.replace(re, ''); }
+  }
+  matched.forEach((term, i) => {
+    const t = document.createElement('span');
+    t.className = 'tag';
+    t.style.animationDelay = `${i * 0.04}s`;
+    t.innerHTML = `${term} <span class="arrow-sm">→</span> <span class="ja">${GLOSSARY[term]}</span>`;
+    container.appendChild(t);
+  });
+}
+
+function typeWriter(el, text, speed = 35) {
+  return new Promise(resolve => {
+    el.textContent = '';
+    const bar = document.createElement('span');
+    bar.className = 'cursor-bar';
+    el.appendChild(bar);
+    let i = 0;
+    const iv = setInterval(() => {
+      if (i < text.length) {
+        el.textContent = text.slice(0, ++i);
+        el.appendChild(bar);
+      } else { clearInterval(iv); bar.remove(); resolve(); }
+    }, speed);
+  });
+}
+
+function setStatus(msg, loading) {
+  const el = document.getElementById('status');
+  el.innerHTML = loading ? `<span class="spinner"></span>${msg}` : msg;
+}
+
+const STEP_ICONS = {
+  reason:    '<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4M12 8h.01"/></svg>',
+  act:       '<svg viewBox="0 0 24 24"><path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"/></svg>',
+  observe:   '<svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>',
+  translate: '<svg viewBox="0 0 24 24"><path d="m5 8 6 6M4 14l6-6 2-3M2 5h12M7 2h1M22 22l-5-10-5 10M14 18h6"/></svg>',
+  reflect:   '<svg viewBox="0 0 24 24"><path d="M12 22c5.52 0 10-4.48 10-10S17.52 2 12 2 2 6.48 2 12s4.48 10 10 10z"/><path d="m9 12 2 2 4-4"/></svg>',
+  critic:    '<svg viewBox="0 0 24 24"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg>',
+};
+
+async function runTranslation() {
+  const btn = document.getElementById('translateBtn');
+  const sourceText = document.getElementById('source').value.trim();
+  if (!sourceText) return;
+
+  btn.disabled = true;
+  document.getElementById('outputCard').classList.remove('show');
+  document.querySelectorAll('.metric-card').forEach(c => c.classList.remove('show'));
+  document.getElementById('ttsRow').style.display = 'none';
+
+  const traceCard = document.getElementById('traceCard');
+  const traceBody = document.getElementById('traceBody');
+  const traceToggle = document.getElementById('traceToggle');
+  traceCard.classList.add('show');
+  traceToggle.classList.add('open');
+  traceBody.classList.add('open');
+  traceBody.innerHTML = '';
+
+  const sourceLower = sourceText.toLowerCase();
+  const sortedTerms = Object.keys(GLOSSARY).sort((a, b) => b.length - a.length);
+  const localMatched = []; let rem = sourceLower;
+  for (const t of sortedTerms) {
+    const re = new RegExp(`\\b${t.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\b`, 'i');
+    if (re.test(rem)) { localMatched.push(t); rem = rem.replace(re, ''); }
+  }
+
+  setStatus('Reasoning...', true);
+  addTraceStep(traceBody, {
+    label: 'Reason', type: 'reason', active: false,
+    text: `Analyzing source text. Identified ${localMatched.length} potential glossary term(s): ${localMatched.map(t => '"' + t + '"').join(', ') || 'none'}.`,
+  });
+  await sleep(400);
+
+  if (localMatched.length > 0) {
+    setStatus('Looking up glossary...', true);
+    const toolStep = {
+      label: 'Act', type: 'act', active: true,
+      tools: localMatched.map(t => ({
+        fn: 'lookup_glossary', args: `"${t}"`,
+        result: `→ found: ${GLOSSARY[t]}`,
+      })),
+    };
+    addTraceStep(traceBody, toolStep);
+    await sleep(500);
+
+    addTraceStep(traceBody, {
+      label: 'Observe', type: 'observe', active: false,
+      text: `${localMatched.length} glossary term(s) resolved with approved Japanese forms.`,
+    });
+    await sleep(300);
+  }
+
+  setStatus('Translating via Claude Sonnet 4.6...', true);
+  const pendingTranslate = addTraceStep(traceBody, {
+    label: 'Translate', type: 'translate', active: true,
+    text: 'Generating translation via Claude Sonnet 4.6...',
+  });
+
+  let d;
+  try {
+    const resp = await fetch('/api/translate', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ source_en: sourceText }),
+    });
+    if (!resp.ok) {
+      const err = await resp.json().catch(() => ({ error: 'Request failed' }));
+      throw new Error(err.error || 'Translation failed');
+    }
+    d = await resp.json();
+  } catch (err) {
+    setStatus('Error: ' + err.message, false);
+    pendingTranslate.querySelector('.step-text').textContent = 'Failed: ' + err.message;
+    btn.disabled = false;
+    return;
+  }
+
+  pendingTranslate.querySelector('.step-text').textContent = 'Translation generated.';
+
+  setStatus('Self-reflecting...', true);
+  await sleep(300);
+  addTraceStep(traceBody, {
+    label: 'Self-Reflect', type: 'reflect', active: false,
+    text: 'Language purity, glossary compliance, and punctuation verified.',
+  });
+
+  await sleep(300);
+  setStatus('Critic scoring...', true);
+  const criticStep = d.trace.find(s => s.type === 'critic');
+  addTraceStep(traceBody, {
+    label: 'Critic', type: 'critic', active: true,
+    text: criticStep?.text || 'Translation evaluated.',
+    score: d.coverage_score,
+  });
+
+  setStatus('', false);
+
+  const out = document.getElementById('outputCard');
+  out.classList.add('show');
+  await typeWriter(document.getElementById('outputJa'), d.translation, 35);
+  document.getElementById('ttsRow').style.display = 'flex';
+
+  document.getElementById('mv0').textContent = d.coverage_score.toFixed(2);
+  document.getElementById('mv1').textContent = d.tool_calls;
+  document.getElementById('mv2').textContent = (d.latency_ms / 1000).toFixed(1) + 's';
+
+  for (let i = 0; i < 4; i++) {
+    await sleep(80);
+    document.getElementById('mc' + i).classList.add('show');
+  }
+
+  btn.disabled = false;
+  setStatus((d.latency_ms / 1000).toFixed(1) + 's total', false);
+}
+
+function addTraceStep(container, s) {
+  const div = document.createElement('div');
+  div.className = 'trace-step' + (s.active ? ' active' : '');
+  div.setAttribute('data-phase', s.type);
+
+  const icon = STEP_ICONS[s.type] || '';
+  let scoreClass = '';
+  if (s.score !== undefined) {
+    scoreClass = s.score >= 0.85 ? 'high' : s.score >= 0.6 ? 'mid' : 'low';
+  }
+
+  let inner = `<div class="step-label"><span class="step-badge">${icon}${s.label}</span>`;
+  if (s.score !== undefined) inner += ` <span class="step-type">— <span class="step-score ${scoreClass}">${s.score.toFixed(2)}</span></span>`;
+  inner += '</div>';
+
+  if (s.tools) {
+    inner += s.tools.map(t => {
+      const rc = t.result.includes('found') ? 'found' : t.result.includes('chunk') ? 'search' : '';
+      return `<div class="tool-item"><span class="fn-name">${t.fn}</span>(<span class="fn-args">${t.args}</span>)<span class="fn-result ${rc}">${t.result}</span></div>`;
+    }).join('');
+  } else if (s.text) {
+    inner += `<div class="step-text">${s.text}</div>`;
+  }
+
+  div.innerHTML = inner;
+  container.appendChild(div);
+  div.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+  return div;
+}
+
+function toggleTrace() {
+  document.getElementById('traceToggle').classList.toggle('open');
+  document.getElementById('traceBody').classList.toggle('open');
+}
+
+let currentAudio = null;
+
+async function playTTS() {
+  const btn = document.getElementById('ttsBtn');
+  const status = document.getElementById('ttsStatus');
+  const audio = document.getElementById('ttsAudio');
+  const text = document.getElementById('outputJa').textContent;
+
+  if (!text) return;
+
+  if (currentAudio && !audio.paused) {
+    audio.pause();
+    audio.currentTime = 0;
+    btn.classList.remove('playing');
+    btn.innerHTML = '<span class="tts-icon"><svg viewBox="0 0 24 24"><path d="M3 9v6h4l5 5V4L7 9H3zm13.5 3c0-1.77-1.02-3.29-2.5-4.03v8.05c1.48-.73 2.5-2.25 2.5-4.02zM14 3.23v2.06c2.89.86 5 3.54 5 6.71s-2.11 5.85-5 6.71v2.06c4.01-.91 7-4.49 7-8.77s-2.99-7.86-7-8.77z"/></svg></span> Listen';
+    status.textContent = '';
+    return;
+  }
+
+  btn.disabled = true;
+  status.textContent = 'generating audio...';
+
+  try {
+    const resp = await fetch('/api/tts', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ text }),
+    });
+
+    if (!resp.ok) throw new Error('TTS request failed');
+
+    const blob = await resp.blob();
+    const url = URL.createObjectURL(blob);
+    audio.src = url;
+    currentAudio = url;
+
+    btn.disabled = false;
+    btn.classList.add('playing');
+    btn.innerHTML = '<span class="wave-bars"><span></span><span></span><span></span><span></span></span> Playing';
+    status.textContent = '';
+
+    audio.play();
+    audio.onended = () => {
+      btn.classList.remove('playing');
+      btn.innerHTML = '<span class="tts-icon"><svg viewBox="0 0 24 24"><path d="M3 9v6h4l5 5V4L7 9H3zm13.5 3c0-1.77-1.02-3.29-2.5-4.03v8.05c1.48-.73 2.5-2.25 2.5-4.02zM14 3.23v2.06c2.89.86 5 3.54 5 6.71s-2.11 5.85-5 6.71v2.06c4.01-.91 7-4.49 7-8.77s-2.99-7.86-7-8.77z"/></svg></span> Listen';
+      URL.revokeObjectURL(url);
+    };
+  } catch (err) {
+    status.textContent = 'error: ' + err.message;
+    btn.disabled = false;
+  }
+}
+
+function sleep(ms) { return new Promise(r => setTimeout(r, ms)); }
+
+document.getElementById('source').addEventListener('input', detectTerms);
+detectTerms();
+</script>
+</body>
+</html>

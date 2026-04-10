@@ -1,0 +1,205 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>S2 Advanced RAG — EN→JA Translation</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Geist+Mono:wght@300;400;500;600&family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+<style>
+*, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+:root {
+  --bg: #0a0a0a; --card: #111; --border: #1e1e1e; --border-light: #2a2a2a;
+  --fg: #ededed; --fg-secondary: #888; --fg-tertiary: #555;
+  --blue: #3b82f6; --green: #22c55e; --amber: #f59e0b; --purple: #a855f7;
+  --cyan: #06b6d4; --rose: #f43f5e;
+  --radius: 12px;
+  --sans: 'Inter', -apple-system, sans-serif;
+  --mono: 'Geist Mono', 'SF Mono', monospace;
+}
+html { font-size: 14px; }
+body { background: var(--bg); color: var(--fg); font-family: var(--sans); min-height: 100vh; -webkit-font-smoothing: antialiased; }
+::selection { background: rgba(255,255,255,0.15); }
+a { color: inherit; text-decoration: none; }
+
+nav { display: flex; align-items: center; justify-content: space-between; padding: 0 1.5rem; height: 48px; border-bottom: 1px solid var(--border); position: sticky; top: 0; background: rgba(10,10,10,0.92); backdrop-filter: blur(12px); z-index: 100; }
+.nav-left { display: flex; align-items: center; gap: 0.75rem; }
+.nav-title { font-size: 0.85rem; font-weight: 600; }
+.nav-sep { color: var(--fg-tertiary); font-size: 1.1rem; font-weight: 200; }
+.nav-subtitle { font-size: 0.85rem; color: var(--fg-secondary); }
+.nav-links { display: flex; gap: 0.25rem; }
+.nav-link { font-size: 0.75rem; color: var(--fg-tertiary); padding: 0.3rem 0.6rem; border-radius: 6px; font-weight: 500; transition: all 0.15s; }
+.nav-link:hover { color: var(--fg-secondary); background: rgba(255,255,255,0.05); }
+.nav-link.active { color: var(--fg); background: rgba(255,255,255,0.08); }
+
+.container { max-width: 800px; margin: 0 auto; padding: 3rem 1.5rem 5rem; }
+.hero { margin-bottom: 3rem; opacity: 0; animation: fadeIn 0.5s ease forwards; }
+.hero h1 { font-size: 2rem; font-weight: 700; letter-spacing: -0.03em; margin-bottom: 0.4rem; }
+.hero p { color: var(--fg-secondary); font-size: 0.9rem; line-height: 1.6; max-width: 560px; }
+
+.section { margin-bottom: 3rem; }
+.section-title { font-size: 0.7rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.06em; color: var(--fg-tertiary); margin-bottom: 1rem; display: flex; align-items: center; gap: 0.5rem; }
+.section-title .dot { width: 6px; height: 6px; border-radius: 50%; }
+
+.card { background: var(--card); border: 1px solid var(--border); border-radius: var(--radius); overflow: hidden; }
+.card-header { padding: 0.75rem 1rem; border-bottom: 1px solid var(--border); font-size: 0.75rem; color: var(--fg-secondary); font-weight: 500; display: flex; align-items: center; justify-content: space-between; }
+
+.pipeline { display: flex; align-items: center; justify-content: center; gap: 0.3rem; padding: 1.5rem 1rem; flex-wrap: wrap; }
+.pipe-step { display: flex; flex-direction: column; align-items: center; gap: 0.3rem; padding: 0.6rem 1rem; background: rgba(255,255,255,0.03); border: 1px solid var(--border); border-radius: 8px; min-width: 90px; }
+.pipe-step .pipe-num { font-family: var(--mono); font-size: 0.6rem; font-weight: 600; }
+.pipe-step .pipe-label { font-size: 0.7rem; color: var(--fg-secondary); }
+.pipe-arrow { color: var(--fg-tertiary); font-size: 0.8rem; }
+.pipe-step:nth-child(1) .pipe-num { color: var(--cyan); }
+.pipe-step:nth-child(3) .pipe-num { color: var(--purple); }
+.pipe-step:nth-child(5) .pipe-num { color: var(--amber); }
+.pipe-step:nth-child(7) .pipe-num { color: var(--green); }
+
+.metrics-row { display: grid; grid-template-columns: repeat(4, 1fr); gap: 1rem; margin-bottom: 1.5rem; }
+.metric-card { background: var(--card); border: 1px solid var(--border); border-radius: var(--radius); padding: 1rem; }
+.metric-title { font-size: 0.65rem; color: var(--fg-tertiary); text-transform: uppercase; letter-spacing: 0.04em; margin-bottom: 0.3rem; font-weight: 500; }
+.metric-val { font-size: 1.4rem; font-weight: 700; font-family: var(--mono); letter-spacing: -0.02em; }
+.metric-sub { font-size: 0.6rem; color: var(--fg-tertiary); font-family: var(--mono); margin-top: 0.1rem; }
+
+table { width: 100%; border-collapse: collapse; font-size: 0.8rem; }
+th { text-align: left; padding: 0.55rem 1rem; font-size: 0.65rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em; color: var(--fg-tertiary); border-bottom: 1px solid var(--border); }
+td { padding: 0.55rem 1rem; border-bottom: 1px solid var(--border); font-family: var(--mono); }
+tr:last-child td { border-bottom: none; }
+td:first-child { font-family: var(--sans); color: var(--fg-secondary); font-weight: 500; }
+td:nth-child(2), th:nth-child(2) { text-align: right; }
+
+.strata { padding: 1rem; }
+.stratum { display: flex; align-items: center; gap: 1rem; padding: 0.6rem 0; border-bottom: 1px solid var(--border); }
+.stratum:last-child { border-bottom: none; }
+.stratum-icon { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
+.stratum-name { font-size: 0.8rem; font-weight: 500; flex: 1; }
+.stratum-detail { font-size: 0.7rem; color: var(--fg-tertiary); font-family: var(--mono); }
+
+.prose { padding: 1.25rem; font-size: 0.8rem; color: var(--fg-secondary); line-height: 1.7; }
+.prose strong { color: var(--fg); }
+
+.demo-cta { display: inline-flex; align-items: center; gap: 0.4rem; padding: 0.45rem 1rem; border: 1px solid var(--blue); border-radius: 8px; font-size: 0.75rem; font-weight: 600; color: var(--blue); transition: all 0.15s; margin-top: 1rem; }
+.demo-cta:hover { background: rgba(59,130,246,0.1); }
+.demo-cta svg { width: 12px; height: 12px; fill: none; stroke: currentColor; stroke-width: 2.5; stroke-linecap: round; }
+
+.anim { opacity: 0; transform: translateY(12px); transition: opacity 0.5s ease, transform 0.5s ease; }
+.anim.visible { opacity: 1; transform: translateY(0); }
+
+footer { text-align: center; padding: 2rem 0 1rem; font-size: 0.7rem; color: var(--fg-tertiary); }
+
+@keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+@media (max-width: 640px) { .container { padding: 2rem 1rem 3rem; } .hero h1 { font-size: 1.5rem; } .metrics-row { grid-template-columns: 1fr 1fr; } .pipeline { gap: 0.2rem; } }
+</style>
+</head>
+<body>
+
+<nav>
+  <div class="nav-left">
+    <span class="nav-title">genai-llms</span>
+    <span class="nav-sep">/</span>
+    <span class="nav-subtitle">S2 Advanced RAG</span>
+  </div>
+  <div class="nav-links">
+    <a href="/" class="nav-link">Home</a>
+    <a href="/s0-s1" class="nav-link">S0/S1</a>
+    <a href="/s2" class="nav-link active">S2</a>
+    <a href="/s3" class="nav-link">S3</a>
+    <a href="/metrics" class="nav-link">Metrics</a>
+  </div>
+</nav>
+
+<div class="container">
+
+  <div class="hero">
+    <h1>S2: Advanced RAG</h1>
+    <p>Weighted multi-strata retrieval with cross-encoder reranking. Queries four knowledge sources in parallel, reranks for precision, then generates with high-signal context.</p>
+  </div>
+
+  <div class="section anim">
+    <div class="section-title"><span class="dot" style="background:var(--purple)"></span>Pipeline</div>
+    <div class="card">
+      <div class="pipeline">
+        <div class="pipe-step"><span class="pipe-num">1</span><span class="pipe-label">Query</span></div>
+        <span class="pipe-arrow">→</span>
+        <div class="pipe-step"><span class="pipe-num">2</span><span class="pipe-label">Retrieve</span></div>
+        <span class="pipe-arrow">→</span>
+        <div class="pipe-step"><span class="pipe-num">3</span><span class="pipe-label">Rerank</span></div>
+        <span class="pipe-arrow">→</span>
+        <div class="pipe-step"><span class="pipe-num">4</span><span class="pipe-label">Generate</span></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="section anim">
+    <div class="section-title"><span class="dot" style="background:var(--cyan)"></span>Retrieval Strata</div>
+    <div class="card">
+      <div class="card-header">4 parallel vector queries from AWS S3 Vectors</div>
+      <div class="strata">
+        <div class="stratum"><div class="stratum-icon" style="background:var(--blue)"></div><div class="stratum-name">EN-JA Parallel Corpus</div><div class="stratum-detail">46,616 chunks &middot; top-3</div></div>
+        <div class="stratum"><div class="stratum-icon" style="background:var(--amber)"></div><div class="stratum-name">Gemini Annotated Examples</div><div class="stratum-detail">499 chunks &middot; top-2</div></div>
+        <div class="stratum"><div class="stratum-icon" style="background:var(--green)"></div><div class="stratum-name">Grammar Guide</div><div class="stratum-detail">81 chunks &middot; top-1</div></div>
+        <div class="stratum"><div class="stratum-icon" style="background:var(--purple)"></div><div class="stratum-name">JTF Style Guide</div><div class="stratum-detail">181 chunks &middot; top-1</div></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="section anim">
+    <div class="section-title"><span class="dot" style="background:var(--amber)"></span>Evaluation Results</div>
+    <div class="metrics-row">
+      <div class="metric-card"><div class="metric-title">BLEU</div><div class="metric-val">64.93</div><div class="metric-sub">char tokenized</div></div>
+      <div class="metric-card"><div class="metric-title">ChrF++</div><div class="metric-val">67.81</div><div class="metric-sub">word order 2</div></div>
+      <div class="metric-card"><div class="metric-title">COMET</div><div class="metric-val">0.9416</div><div class="metric-sub">wmt22-da</div></div>
+      <div class="metric-card"><div class="metric-title">Hit@K</div><div class="metric-val">0.998</div><div class="metric-sub">retrieval</div></div>
+    </div>
+    <div class="card">
+      <div class="card-header"><span>499 samples</span><span style="font-family:var(--mono);color:var(--fg-tertiary)">BAAI bge-reranker-v2-m3</span></div>
+      <div style="padding:0;">
+        <table>
+          <thead><tr><th>Metric</th><th>Value</th></tr></thead>
+          <tbody>
+            <tr><td>Avg Retrieval (ms)</td><td>2,241</td></tr>
+            <tr><td>Avg Coverage Score</td><td>0.6121</td></tr>
+            <tr><td>Terminology Samples</td><td>311</td></tr>
+            <tr><td>Terminology Terms Total</td><td>552</td></tr>
+            <tr><td>Terminology Correct Terms</td><td>57</td></tr>
+            <tr><td>Terminology Accuracy</td><td>0.1033</td></tr>
+            <tr><td>Retrieval Recall@K</td><td>0.999</td></tr>
+            <tr><td>Error Binary F1</td><td>0.5254</td></tr>
+            <tr><td>Error Category Macro F1</td><td>0.0</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <div class="section anim">
+    <div class="section-title"><span class="dot" style="background:var(--rose)"></span>Strengths &amp; Limitations</div>
+    <div class="card">
+      <div class="prose">
+        <p><strong>Best surface-level scores across all variants.</strong> BLEU 64.93 and chrF++ 67.81 mean the translations closely match the reference wording. The reranker filters out noise from the large parallel corpus, keeping only the most relevant examples as context for the model.</p>
+        <p style="margin-top:0.75rem;"><strong>Strong meaning preservation.</strong> COMET reaches 0.9416 &mdash; a big jump from S0/S1&rsquo;s ~0.73. This means the model isn&rsquo;t just copying surface patterns, it&rsquo;s actually producing translations that preserve the original meaning well.</p>
+        <p style="margin-top:0.75rem;"><strong>Near-perfect retrieval.</strong> Hit@K 0.998 and Recall@K 0.999 &mdash; the weighted multi-strata approach queries all four knowledge sources every time, so it almost always finds relevant context. The tradeoff is that this brute-force approach is slower than selective retrieval.</p>
+        <p style="margin-top:0.75rem;"><strong style="color:var(--rose);">Terminology accuracy is still low at 0.1033.</strong> Even though the retrieval finds glossary entries, the model doesn&rsquo;t always use the approved terms. It sees &ldquo;password &rarr; パスワード&rdquo; in the context but might still choose a different word. Retrieval gets the right information to the model, but doesn&rsquo;t force compliance.</p>
+        <p style="margin-top:0.75rem;"><strong style="color:var(--amber);">Error detection is a weakness.</strong> Error Category Macro F1 is 0.0 &mdash; the system&rsquo;s error classifier doesn&rsquo;t align with the gold labels at all on a per-category basis. Binary F1 of 0.5254 shows it catches roughly half of actual errors, but categorises them incorrectly.</p>
+      </div>
+    </div>
+  </div>
+
+  <div style="text-align:center; margin-top:2rem;">
+    <a href="/s3" class="demo-cta">
+      <svg viewBox="0 0 24 24"><polygon points="5 3 19 12 5 21 5 3"/></svg>
+      Try the S3 Agentic Translator
+    </a>
+  </div>
+
+  <footer>SMU IS469 Gen AI with LLMs &middot; Final Group Project</footer>
+
+</div>
+
+<script>
+const observer = new IntersectionObserver((entries) => {
+  entries.forEach(e => { if (e.isIntersecting) e.target.classList.add('visible'); });
+}, { threshold: 0.15 });
+document.querySelectorAll('.anim').forEach(el => observer.observe(el));
+</script>
+</body>
+</html>
