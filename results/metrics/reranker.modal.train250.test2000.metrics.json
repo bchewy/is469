@@ -36,8 +36,8 @@
     "error_eval_text_source_counts": {
       "unknown": 250
     },
-    "comet": 0.6679,
-    "comet_source": "fallback_chrfpp"
+    "comet": 0.9428,
+    "comet_source": "wmt22-comet-da"
   },
   "test": {
     "output_path": "/results/metrics/advanced_rag_pipeline_outputs.modal.2250.jsonl",
@@ -72,6 +72,7 @@
       "unknown": 2000
     },
     "comet": 0.6898,
-    "comet_source": "fallback_chrfpp"
+    "comet_source": "unavailable_saved_rows",
+    "comet_rows_available": 249
   }
 }
